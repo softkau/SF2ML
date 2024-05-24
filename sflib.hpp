@@ -1,3 +1,118 @@
+#pragma once
+
+#include "info_manager.hpp"
+#include "sample_manager.hpp"
+#include <memory>
+
+namespace sflib {
+	class InstrumentManager {
+		int i = 0;
+	};
+
+	class PresetManager {
+		int i = 0;
+	};
+
+
+	class SountFont2 {
+	public:
+		SountFont2(std::istream& is) {
+			is.seekg(0, std::ios::end);
+			DWORD sz = is.tellg();
+			is.seekg(0, std::ios::beg);
+			sz -= is.tellg();
+			std::vector<BYTE> buf(sz);
+			is.read((char*)buf.data(), sz);
+			init(buf.data(), sz);
+		}
+		void init(const BYTE* buf, std::size_t buf_size) {
+			ChunkHead ck_head;
+			auto [riff_next, riff_err] = ReadChunkHead(ck_head, buf, buf_size, 0);
+			if (riff_err) {
+				status = riff_err;
+				return;
+			}
+			if (!CheckFOURCC(ck_head.ck_id, "RIFF")) {
+				status = SFLIB_FAILED;
+				return;
+			}
+
+			const BYTE* riff_buf = buf + sizeof(ChunkHead);
+			const std::size_t riff_size = ck_head.ck_size;
+
+			FOURCC sfbk_fourcc;
+			std::memcpy(&sfbk_fourcc, riff_buf, sizeof(FOURCC));
+			if (!CheckFOURCC(sfbk_fourcc, "sfbk")) {
+				status = SFLIB_FAILED;
+				return;
+			}
+			FOURCC info_offset = sizeof(FOURCC);
+
+			ChunkHead info_head;
+			auto [sdta_offset, info_err] = ReadChunkHead(info_head, riff_buf, riff_size, info_offset);
+			if (info_err) {
+				status = info_err;
+				return;
+			}
+
+			ChunkHead sdta_head;
+			auto [pdta_offset, sdta_err] = ReadChunkHead(sdta_head, riff_buf, riff_size, sdta_offset);
+			if (sdta_err) {
+				status = sdta_err;
+				return;
+			}
+
+			ChunkHead pdta_head;
+			auto [last_offset, pdta_err] = ReadChunkHead(pdta_head, riff_buf, riff_size, pdta_offset);
+			if (pdta_err) {
+				status = pdta_err;
+				return;
+			}
+
+			if (!CheckFOURCC(info_head.ck_id, "LIST")
+				|| !CheckFOURCC(sdta_head.ck_id, "LIST")
+				|| !CheckFOURCC(pdta_head.ck_id, "LIST")
+			) {
+				status = SFLIB_FAILED;
+				return;
+			}
+
+			const BYTE* info_ptr = riff_buf + info_offset + sizeof(ChunkHead);
+			const BYTE* sdta_ptr = riff_buf + sdta_offset + sizeof(ChunkHead);
+			const BYTE* pdta_ptr = riff_buf + pdta_offset + sizeof(ChunkHead);
+
+			infos = std::make_unique<sflib::InfoManager>(info_ptr, info_head.ck_size);
+			if (infos->Status()) {
+				status = infos->Status();
+				return;
+			}
+
+			samples = std::make_unique<SampleManager>(sdta_ptr, sdta_head.ck_size, pdta_ptr, pdta_head.ck_size);
+			if (samples->Status()) {
+				status = samples->Status();
+				return;
+			}
+		}
+
+		SflibError Serialize(std::ostream& os) const;
+
+		InfoManager* Infos() { return infos.get(); }
+		const InfoManager* Infos() const { return infos.get(); }
+		SampleManager* Samples() { return samples.get(); }
+		const SampleManager* Samples() const { return samples.get(); }
+
+	private:
+		SflibError status = SflibError::SFLIB_SUCCESS;
+		std::unique_ptr<InfoManager> infos;
+		std::unique_ptr<SampleManager> samples;
+		std::unique_ptr<InstrumentManager> insts;
+		std::unique_ptr<PresetManager> presets;
+	};
+}
+
+
+#if 0
+
 #ifndef SFLIB_H
 #define SFLIB_H
 
@@ -277,29 +392,6 @@ namespace sflib {
 		// logs sv to stdout.
 		inline void SflibLog(const std::string_view sv) {
 			std::cout << "[SFLIB]" << sv;
-		}
-
-		// check equivalance of FOURCC with ASCII string. FOURCC is assumed to be in big-endian
-		inline bool CheckFOURCC(FOURCC fourcc, const char* str) {
-			auto byte_fourcc = reinterpret_cast<const char*>(&fourcc);
-
-			return byte_fourcc[0] == str[0] &&
-			       byte_fourcc[1] == str[1] &&
-				   byte_fourcc[2] == str[2] &&
-				   byte_fourcc[3] == str[3];
-		}
-
-		// set dst_ptr as ck
-		template <typename T> 
-		inline void MapChunkBinary(T* (&dst_ptr), const void* ck) {
-			dst_ptr = reinterpret_cast<T*>(ck);
-		}
-
-		// converts FOURCC to equivalent ASCII string.
-		inline std::string FOURCCtoString(FOURCC fourcc) {
-			std::string res = "xxxx";
-			memcpy(res.data(), reinterpret_cast<const char*>(&fourcc), sizeof(DWORD));
-			return res;
 		}
 
 		/** @brief reads the head of sub-chunk at parent_ck_data[offset]. offset is then updated to the end of the sub-chunk.
@@ -1203,3 +1295,5 @@ namespace sflib {
 }
 
 #endif // SFLIB_H
+
+#endif
