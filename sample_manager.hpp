@@ -10,18 +10,7 @@
 #include <string>
 
 namespace sflib {
-	using InstID = DWORD;
 	using SampleID = DWORD;
-
-	template <typename T>
-	struct Ranges {
-		T start;
-		T end;
-	};
-
-	enum class RemovalMode {
-		Restrict, Cascade, Force,
-	};
 
 	enum class SampleChannel {
 		Mono, Left, Right,
@@ -106,14 +95,17 @@ namespace sflib {
 		bool IsRomSample(SfHandle target) const;
 		static SflibResult<WavInfo> ValidateWav(const void* data, size_t size);
 
-		SflibError AddRef(SfHandle smpl, InstID inst);
-		SflibError RemoveRef(SfHandle smpl, InstID inst);
+		// should only be used for serializing purposes
+		std::optional<SampleID> GetSampleID(SfHandle target) const;
+
+		SflibError AddRef(SfHandle smpl, SfHandle inst);
+		SflibError RemoveRef(SfHandle smpl, SfHandle inst);
 
 		std::optional<SfHandle> FindSample(const std::string& name) const {
 			if (auto it = smpl_index.find(name); it != smpl_index.end()) {
 				return it->second;
 			}
-			return {};
+			return std::nullopt;
 		}
 
 		using IndexContainer = std::multimap<std::string, SfHandle>;
@@ -122,7 +114,7 @@ namespace sflib {
 			if (res.first != res.second) {
 				return res;
 			} else {
-				return {};
+				return std::nullopt;
 			}
 		}
 
@@ -130,7 +122,7 @@ namespace sflib {
 		int sample_bitdepth = 16;
 		int z_zone = 46; // zero zone size (which exists in between sample data)
 		SfHandleInterface<SampleData> samples;
-		std::multimap<SfHandle, InstID> referenced; // keeps track of instruments referencing the sample(s)
+		std::multimap<SfHandle, SfHandle> referenced; // keeps track of instruments referencing the sample(s)
 
 		IndexContainer smpl_index; // for searching samples by name
 	};

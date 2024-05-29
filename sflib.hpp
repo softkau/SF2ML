@@ -2,17 +2,12 @@
 
 #include "info_manager.hpp"
 #include "sample_manager.hpp"
+#include "instrument_manager.hpp"
+#include "preset_manager.hpp"
+#include "sfmap.hpp"
 #include <memory>
 
 namespace sflib {
-	class InstrumentManager {
-		int i = 0;
-	};
-
-	class PresetManager {
-		int i = 0;
-	};
-
 
 	class SountFont2 {
 	public:
@@ -39,6 +34,12 @@ namespace sflib {
 
 			const BYTE* riff_buf = buf + sizeof(ChunkHead);
 			const std::size_t riff_size = ck_head.ck_size;
+
+			SfbkMap sfbk_ptr;
+			if (auto err = GetSfbkMap(sfbk_ptr, riff_buf, riff_size)) {
+				status = err;
+				return;
+			}
 
 			FOURCC sfbk_fourcc;
 			std::memcpy(&sfbk_fourcc, riff_buf, sizeof(FOURCC));
@@ -76,12 +77,11 @@ namespace sflib {
 				status = SFLIB_FAILED;
 				return;
 			}
-
 			const BYTE* info_ptr = riff_buf + info_offset + sizeof(ChunkHead);
 			const BYTE* sdta_ptr = riff_buf + sdta_offset + sizeof(ChunkHead);
 			const BYTE* pdta_ptr = riff_buf + pdta_offset + sizeof(ChunkHead);
 
-			infos = std::make_unique<sflib::InfoManager>(info_ptr, info_head.ck_size);
+			infos = std::make_unique<sflib::InfoManager>(sfbk_ptr.info);
 			if (infos->Status()) {
 				status = infos->Status();
 				return;
@@ -92,6 +92,20 @@ namespace sflib {
 				status = samples->Status();
 				return;
 			}
+
+			insts = std::make_unique<InstrumentManager>(sfbk_ptr.pdta);
+			if (insts->Status()) {
+				status = insts->Status();
+				return;
+			}
+
+			presets = std::make_unique<PresetManager>(sfbk_ptr.pdta);
+			if (presets->Status()) {
+				status = presets->Status();
+				return;
+			}
+
+			status = SFLIB_SUCCESS;
 		}
 
 		SflibError Serialize(std::ostream& os) const;
@@ -100,6 +114,10 @@ namespace sflib {
 		const InfoManager* Infos() const { return infos.get(); }
 		SampleManager* Samples() { return samples.get(); }
 		const SampleManager* Samples() const { return samples.get(); }
+		InstrumentManager* Insts() { return insts.get(); }
+		const InstrumentManager* Insts() const { return insts.get(); }
+		PresetManager* Presets() { return presets.get(); }
+		const PresetManager* Presets() const { return presets.get(); }
 
 	private:
 		SflibError status = SflibError::SFLIB_SUCCESS;

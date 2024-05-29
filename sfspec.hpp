@@ -72,6 +72,7 @@ namespace sflib {
 		SfScaleTuning = 56,
 		SfExclusiveClass = 57,
 		SfOverridingRootKey = 58,
+		SfEndOper = 60,
 	};
 	
 	struct RangesType {
@@ -173,39 +174,6 @@ namespace sflib {
 		RecordType ck_data[];
 	} __attribute__((packed));
 
-	struct SfbkMap {
-		struct Info {
-			const MappedChunk<SfVersionTag>* ifil; // the version of the Sound Font RIFF file ; e.g. 2.01
-			const MappedChunk<CHAR>* isng; // target Sound Engine ; e.g. EMU8000
-			const MappedChunk<CHAR>* inam;  // Sound Font Bank Name ; e.g. General MIDI
-			const MappedChunk<CHAR>* irom;  // Sound ROM Name
-			const MappedChunk<SfVersionTag>* iver; // Sound ROM Version
-			const MappedChunk<CHAR>* icrd;  // date of creation of the bank
-			const MappedChunk<CHAR>* ieng;  // sound designers and engineers for the bank
-			const MappedChunk<CHAR>* iprd;  // product for which the bank was intended
-			const MappedChunk<CHAR>* icop;  // contains any copyright message
-			const MappedChunk<CHAR>* icmt;  // contains any comments on the bank
-			const MappedChunk<CHAR>* isft;  // the SoundFont tools used to create and alter the bank
-		} info;
-		struct Sdta {
-			const MappedChunk<CHAR>* smpl; // 16-bit samples (when sm24 chunk exists, it is interpreted as upper 16-bit part)
-			const MappedChunk<CHAR>* sm24; // lower 8-bit for 24-bit samples
-		} sdta;
-		struct Pdta {
-			const MappedChunk<SfPresetHeader>* phdr;
-			const MappedChunk<SfPresetBag>* pbag;
-			const MappedChunk<SfModList>* pmod;
-			const MappedChunk<SfGenList>* pgen;
-			const MappedChunk<SfInst>* inst;
-			const MappedChunk<SfInstBag>* ibag;
-			const MappedChunk<SfInstModList>* imod;
-			const MappedChunk<SfInstGenList>* igen;
-			const MappedChunk<SfSample>* shdr;
-		} pdta;
-	};
-
-
-
 	enum SflibError : int {
 		SFLIB_SUCCESS = 0,
 		SFLIB_FAILED = 1,
@@ -218,6 +186,7 @@ namespace sflib {
 		SFLIB_NOT_MONO_CHANNEL = 8,
 		SFLIB_NO_SUCH_SAMPLE = 9,
 		SFLIB_BAD_LINK = 10,
+		SFLIB_NO_SUCH_INSTRUMENT = 11,
 	};
 
 	template <class T>
@@ -260,15 +229,13 @@ namespace sflib {
 		return { offset, SFLIB_SUCCESS };
 	}
 
-	struct Chunk {
-		char ck_id[5];
-		std::vector<BYTE> ck_data;
-		void Serialize(BYTE* dst) const {
-			static_assert(sizeof(BYTE) == sizeof(char));
-			DWORD ck_size = ck_data.size();
-			std::memcpy(dst, ck_id, sizeof(FOURCC));
-			std::memcpy(dst + sizeof(FOURCC), &ck_size, sizeof(DWORD));
-			std::memcpy(dst + sizeof(ChunkHead), ck_data.data(), ck_data.size());
-		}
+	template <typename T>
+	struct Ranges {
+		T start;
+		T end;
+	};
+
+	enum class RemovalMode {
+		Restrict, Cascade, Force,
 	};
 }

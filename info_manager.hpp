@@ -5,13 +5,14 @@
 #include <functional>
 #include <iostream>
 #include "sfspec.hpp"
+#include "sfmap.hpp"
 
 namespace sflib {
 	class InfoManager {
 	public:
 		struct VersionTag { unsigned major = 0, minor = 0; };
 
-		InfoManager(const BYTE* buf, std::size_t buf_size);
+		InfoManager(const SfbkMap::Info& info);
 
 		// void SetSoundROM(const std::string& name, VersionTag ver);
 		// void UnsetSoundROM();

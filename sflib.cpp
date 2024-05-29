@@ -67,13 +67,6 @@ SoundFontManager::SoundFontManager(const BYTE* buf, std::size_t buf_size) {
 	) {
 		status = SFLIB_FAILED;
 		return;
-	}
-
-	info_manager = std::make_unique<sflib::InfoManager>(riff_buf + sizeof(ChunkHead), info_head.ck_size);
-	if (info_manager->Status()) {
-		status = info_manager->Status();
-		return;
-	}
-	
+	}	
 	
 }

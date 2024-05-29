@@ -122,8 +122,10 @@ SampleManager::SampleManager(const BYTE* sdta, DWORD sdta_size, const BYTE* pdta
 			logger("Sample #" + std::to_string(id) + " data is corrupted.\n");
 		}
 
+		char name[21];
+		std::strcpy(name, smpl_data.sample_name);
 		SfHandle handle = samples.EmplaceBack(std::move(smpl_data));
-		smpl_index.emplace(std::string(smpl_data.sample_name), handle);
+		smpl_index.emplace(name, handle);
 	}
 	status = SFLIB_SUCCESS;
 }
@@ -154,7 +156,7 @@ DWORD SampleManager::ChunkSize() const {
 		sm24_size++;
 	}
 
-	DWORD sdta_size = smpl_size + sm24_size;
+	DWORD sdta_size = sizeof(ChunkHead) + smpl_size + sm24_size;
 	return sdta_size + shdr_size;
 }
 
@@ -255,6 +257,7 @@ SflibError SampleManager::SerializeSHDR(BYTE* dst, BYTE** end_param) const {
 	// Append EOS (End Of Sample) Entry
 	SfSample eos { "EOS" };
 	std::memcpy(pos, &eos, sizeof(eos));
+	pos += sizeof(eos);
 
 	DWORD shdr_sz = pos - shdr_head - 8;
 	std::memcpy(shdr_head + 4, &shdr_sz, sizeof(shdr_sz));
@@ -330,8 +333,10 @@ SflibResult<SfHandle> SampleManager::AddMono(const void* wav_data, std::size_t w
 	}
 	sdata.sample_type = monoSample;
 	sdata.linked_sample = SfHandle{0};
+	char name_tmp[21];
+	std::strcpy(name_tmp, sdata.sample_name);
 	SfHandle handle = this->samples.EmplaceBack(std::move(sdata));
-	smpl_index.emplace(std::string(sdata.sample_name), handle);
+	smpl_index.emplace(name_tmp, handle);
 	return { handle, SFLIB_SUCCESS };
 }
 
@@ -569,7 +574,11 @@ SflibResult<WavInfo> SampleManager::ValidateWav(const void* data, size_t size) {
 	};
 }
 
-SflibError SampleManager::AddRef(SfHandle smpl, InstID inst) {
+std::optional<SampleID> SampleManager::GetSampleID(SfHandle target) const {
+	return samples.GetID(target);
+}
+
+SflibError SampleManager::AddRef(SfHandle smpl, SfHandle inst) {
 	if (!samples.Get(smpl)) {
 		return SFLIB_NO_SUCH_SAMPLE;
 	}
@@ -577,7 +586,7 @@ SflibError SampleManager::AddRef(SfHandle smpl, InstID inst) {
 	return SFLIB_SUCCESS;
 }
 
-SflibError SampleManager::RemoveRef(SfHandle smpl, InstID inst) {
+SflibError SampleManager::RemoveRef(SfHandle smpl, SfHandle inst) {
 	auto [first, last] = referenced.equal_range(smpl);
 	auto it = std::find_if(first, last, [inst](auto& pair) { return pair.second == inst; });
 	if (it == last) {

@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <optional>
 #include <cassert>
 #include "sfspec.hpp"
 
@@ -11,6 +12,10 @@ namespace sflib {
 		template <typename T> friend class SfHandleInterface;
 		friend class SampleManager;
 		friend struct SampleData;
+		friend class InstrumentManager;
+		friend struct InstData;
+		friend class InstZone;
+		friend class PresetZone;
 
 		auto operator<=>(const SfHandle&) const = default;
 	private:
@@ -68,6 +73,19 @@ namespace sflib {
 				return &data[id];
 			}
 			return nullptr;
+		}
+
+		// should only be used for serializing purposes.
+		std::optional<DWORD> GetID(SfHandle handle) const {
+			if (auto it = interface.find(handle); it != interface.end()) {
+				DWORD id = it->second;
+				return id;
+			}
+			return std::nullopt;
+		}
+
+		DWORD Count() const {
+			return data.size();
 		}
 
 		auto begin() -> typename std::vector<DataType>::iterator {
