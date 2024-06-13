@@ -20,70 +20,59 @@ namespace sflib {
 	using SFTransform = WORD;
 
 	enum SFGenerator : WORD {
-		SfStartAddrsOffset = 0,
-		SfEndAddrsOffset = 1,
-		SfStartloopAddrsOffset = 2,
-		SfEndloopAddrsOffset = 3,
-		SfStartAddrsCoarseOffset = 4,
-		SfModLfoToPitch = 5,
-		SfVibLfoToPitch = 6,
-		SfModEnvToPitch = 7,
-		SfInitialFilterFc = 8,
-		SfInitialFilterQ = 9,
-		SfModLfoToFilterFc = 10,
-		SfModEnvToFilterFc = 11,
-		SfEndAddrsCoarseOffset = 12,
-		SfModLfoToVolume = 13,
-		SfChorusEffectsSend = 15,
-		SfReverbEffectsSend = 16,
-		SfPan = 17,
-		SfDelayModLFO = 21,
-		SfFreqModLFO = 22,
-		SfDelayVibLFO = 23,
-		SfFreqVibLFO = 24,
-		SfDelayModEnv = 25,
-		SfAttackModEnv = 26,
-		SfHoldModEnv = 27,
-		SfDecayModEnv = 28,
-		SfSustainModEnv = 29,
-		SfReleaseModEnv = 30,
-		SfKeynumToModEnvHold = 31,
-		SfKeynumToModEnvDecay = 32,
-		SfDelayVolEnv = 33,
-		SfAttackVolEnv = 34,
-		SfHoldVolEnv = 35,
-		SfDecayVolEnv = 36,
-		SfSustainVolEnv = 37,
-		SfReleaseVolEnv = 38,
-		SfKeynumToVolEnvHold = 39,
-		SfKeynumToVolEnvDecay = 40,
-		SfInstrument = 41,
-		SfKeyRange = 43,
-		SfVelRange = 44,
-		SfStartloopAddrsCoarseOffset = 45,
-		SfKeynum = 46,
-		SfVelocity = 47,
-		SfInitialAttenuation = 48,
-		SfEndloopAddrsCoarseOffset = 50,
-		SfCoarseTune = 51,
-		SfFineTune = 52,
-		SfSampleID = 53,
-		SfSampleModes = 54,
-		SfScaleTuning = 56,
-		SfExclusiveClass = 57,
-		SfOverridingRootKey = 58,
-		SfEndOper = 60,
-	};
-	
-	struct RangesType {
-		BYTE by_lo;
-		BYTE by_hi;
-	};
-
-	union GenAmountType {
-		RangesType ranges;
-		SHORT sh_amount;
-		WORD w_amount;
+		SfGenStartAddrsOffset = 0,
+		SfGenEndAddrsOffset = 1,
+		SfGenStartloopAddrsOffset = 2,
+		SfGenEndloopAddrsOffset = 3,
+		SfGenStartAddrsCoarseOffset = 4,
+		SfGenModLfoToPitch = 5,
+		SfGenVibLfoToPitch = 6,
+		SfGenModEnvToPitch = 7,
+		SfGenInitialFilterFc = 8,
+		SfGenInitialFilterQ = 9,
+		SfGenModLfoToFilterFc = 10,
+		SfGenModEnvToFilterFc = 11,
+		SfGenEndAddrsCoarseOffset = 12,
+		SfGenModLfoToVolume = 13,
+		SfGenChorusEffectsSend = 15,
+		SfGenReverbEffectsSend = 16,
+		SfGenPan = 17,
+		SfGenDelayModLFO = 21,
+		SfGenFreqModLFO = 22,
+		SfGenDelayVibLFO = 23,
+		SfGenFreqVibLFO = 24,
+		SfGenDelayModEnv = 25,
+		SfGenAttackModEnv = 26,
+		SfGenHoldModEnv = 27,
+		SfGenDecayModEnv = 28,
+		SfGenSustainModEnv = 29,
+		SfGenReleaseModEnv = 30,
+		SfGenKeynumToModEnvHold = 31,
+		SfGenKeynumToModEnvDecay = 32,
+		SfGenDelayVolEnv = 33,
+		SfGenAttackVolEnv = 34,
+		SfGenHoldVolEnv = 35,
+		SfGenDecayVolEnv = 36,
+		SfGenSustainVolEnv = 37,
+		SfGenReleaseVolEnv = 38,
+		SfGenKeynumToVolEnvHold = 39,
+		SfGenKeynumToVolEnvDecay = 40,
+		SfGenInstrument = 41,
+		SfGenKeyRange = 43,
+		SfGenVelRange = 44,
+		SfGenStartloopAddrsCoarseOffset = 45,
+		SfGenKeynum = 46,
+		SfGenVelocity = 47,
+		SfGenInitialAttenuation = 48,
+		SfGenEndloopAddrsCoarseOffset = 50,
+		SfGenCoarseTune = 51,
+		SfGenFineTune = 52,
+		SfGenSampleID = 53,
+		SfGenSampleModes = 54,
+		SfGenScaleTuning = 56,
+		SfGenExclusiveClass = 57,
+		SfGenOverridingRootKey = 58,
+		SfGenEndOper = 60,
 	};
 
 	enum SFSampleLink : WORD {
@@ -96,98 +85,133 @@ namespace sflib {
 		RomLeftSample = 0x8004,
 		RomLinkedSample = 0x8008
 	};
+	
+	namespace spec {
+		struct RangesType {
+			BYTE by_lo;
+			BYTE by_hi;
+		};
 
-	static_assert(sizeof(SFSampleLink) == 2);
-	struct SfVersionTag {
-		WORD w_major;
-		WORD w_minor;
-	} __attribute__((packed));
+		union GenAmountType {
+			RangesType ranges;
+			SHORT sh_amount;
+			WORD w_amount;
+		};
 
-	struct SfPresetHeader {
-		CHAR ach_preset_name[20];
-		WORD w_preset;
-		WORD w_bank;
-		WORD w_preset_bag_ndx;
-		DWORD dw_library;
-		DWORD dw_genre;
-		DWORD dw_morphology;
-	} __attribute__((packed));
+		static_assert(sizeof(SFSampleLink) == 2);
+		struct SfVersionTag {
+			WORD w_major;
+			WORD w_minor;
+		} __attribute__((packed));
 
-	struct SfPresetBag {
-		WORD w_gen_ndx;
-		WORD w_mod_ndx;
-	} __attribute__((packed));
+		struct SfPresetHeader {
+			CHAR ach_preset_name[20];
+			WORD w_preset;
+			WORD w_bank;
+			WORD w_preset_bag_ndx;
+			DWORD dw_library;
+			DWORD dw_genre;
+			DWORD dw_morphology;
+		} __attribute__((packed));
 
-	struct SfModList {
-		SFModulator sf_mod_src_oper;
-		SFGenerator sf_mod_dest_oper;
-		SHORT mod_amount;
-		SFModulator sf_mod_amt_src_oper;
-		SFTransform sf_mod_trans_oper;
-	} __attribute__((packed));
+		struct SfPresetBag {
+			WORD w_gen_ndx;
+			WORD w_mod_ndx;
+		} __attribute__((packed));
 
-	struct SfGenList {
-		SFGenerator sf_gen_oper;
-		GenAmountType gen_amount;
-	} __attribute__((packed));
+		struct SfModList {
+			SFModulator sf_mod_src_oper;
+			SFGenerator sf_mod_dest_oper;
+			SHORT mod_amount;
+			SFModulator sf_mod_amt_src_oper;
+			SFTransform sf_mod_trans_oper;
+		} __attribute__((packed));
 
-	struct SfInst {
-		CHAR ach_inst_name[20];
-		WORD w_inst_bag_ndx;
-	} __attribute__((packed));
+		struct SfGenList {
+			SFGenerator sf_gen_oper;
+			GenAmountType gen_amount;
+		} __attribute__((packed));
 
-	struct SfInstBag {
-		WORD w_inst_gen_ndx;
-		WORD w_inst_mod_ndx;
-	} __attribute__((packed));
+		struct SfInst {
+			CHAR ach_inst_name[20];
+			WORD w_inst_bag_ndx;
+		} __attribute__((packed));
 
-	struct SfInstModList {
-		SFModulator sf_mod_src_oper;
-		SFGenerator sf_mod_dest_oper;
-		SHORT mod_amount;
-		SFModulator sf_mod_amt_src_oper;
-		SFTransform sf_mod_trans_oper;
-	} __attribute__((packed));
+		struct SfInstBag {
+			WORD w_inst_gen_ndx;
+			WORD w_inst_mod_ndx;
+		} __attribute__((packed));
 
-	struct SfInstGenList {
-		SFGenerator sf_gen_oper;
-		GenAmountType gen_amount;
-	} __attribute__((packed));
+		struct SfInstModList {
+			SFModulator sf_mod_src_oper;
+			SFGenerator sf_mod_dest_oper;
+			SHORT mod_amount;
+			SFModulator sf_mod_amt_src_oper;
+			SFTransform sf_mod_trans_oper;
+		} __attribute__((packed));
 
-	struct SfSample {
-		CHAR ach_sample_name[20];
-		DWORD dw_start;
-		DWORD dw_end;
-		DWORD dw_startloop;
-		DWORD dw_endloop;
-		DWORD dw_sample_rate;
-		BYTE by_original_key;
-		CHAR ch_correction;
-		WORD w_sample_link;
-		SFSampleLink sf_sample_type;
-	} __attribute__((packed));
+		struct SfInstGenList {
+			SFGenerator sf_gen_oper;
+			GenAmountType gen_amount;
+		} __attribute__((packed));
 
-	template <class RecordType> 
-	struct MappedChunk {
-		FOURCC ck_id;
-		DWORD ck_size;
-		RecordType ck_data[];
-	} __attribute__((packed));
+		struct SfSample {
+			CHAR ach_sample_name[20];
+			DWORD dw_start;
+			DWORD dw_end;
+			DWORD dw_startloop;
+			DWORD dw_endloop;
+			DWORD dw_sample_rate;
+			BYTE by_original_key;
+			CHAR ch_correction;
+			WORD w_sample_link;
+			SFSampleLink sf_sample_type;
+		} __attribute__((packed));
 
-	enum SflibError : int {
+		template <class RecordType> 
+		struct MappedChunk {
+			FOURCC ck_id;
+			DWORD ck_size;
+			RecordType ck_data[];
+		} __attribute__((packed));
+	}
+
+	enum [[nodiscard]] SflibError : int {
 		SFLIB_SUCCESS = 0,
-		SFLIB_FAILED = 1,
-		SFLIB_ZSTR_CHECK_FAILED = 2,
-		SFLIB_INVALID_CK_SIZE = 3,
-		SFLIB_BAD_WAV_DATA = 4,
-		SFLIB_UNSUPPORTED_WAV_DATA = 5,
-		SFLIB_INCOMPATIBLE_BIT_DEPTH = 6,
-		SFLIB_NOT_STEREO_CHANNEL = 7,
-		SFLIB_NOT_MONO_CHANNEL = 8,
-		SFLIB_NO_SUCH_SAMPLE = 9,
-		SFLIB_BAD_LINK = 10,
-		SFLIB_NO_SUCH_INSTRUMENT = 11,
+		SFLIB_FAILED,
+		SFLIB_ZSTR_CHECK_FAILED,
+		SFLIB_INVALID_CK_SIZE,
+		SFLIB_BAD_WAV_DATA,
+		SFLIB_UNSUPPORTED_WAV_DATA,
+		SFLIB_INCOMPATIBLE_BIT_DEPTH,
+		SFLIB_NOT_STEREO_CHANNEL,
+		SFLIB_NOT_MONO_CHANNEL,
+		SFLIB_NO_SUCH_SAMPLE,
+		SFLIB_BAD_LINK,
+		SFLIB_NO_SUCH_INSTRUMENT,
+		SFLIB_MISSING_TERMINAL_RECORD,
+		SFLIB_EMPTY_CHUNK,
+		SFLIB_UNIMPLEMENTED,
+		SFLIB_END_OF_ERRCODE
 	};
+
+	constexpr const char* SflibErrorStr[] = {
+		"SFLIB_SUCCESS",
+		"SFLIB_FAILED",
+		"SFLIB_ZSTR_CHECK_FAILED",
+		"SFLIB_INVALID_CK_SIZE",
+		"SFLIB_BAD_WAV_DATA",
+		"SFLIB_UNSUPPORTED_WAV_DATA",
+		"SFLIB_INCOMPATIBLE_BIT_DEPTH",
+		"SFLIB_NOT_STEREO_CHANNEL",
+		"SFLIB_NOT_MONO_CHANNEL",
+		"SFLIB_NO_SUCH_SAMPLE",
+		"SFLIB_BAD_LINK",
+		"SFLIB_NO_SUCH_INSTRUMENT",
+		"SFLIB_MISSING_TERMINAL_RECORD",
+		"SFLIB_EMPTY_CHUNK",
+		"SFLIB_UNIMPLEMENTED",
+	}; static_assert(SFLIB_END_OF_ERRCODE == sizeof(SflibErrorStr) / sizeof(const char*));
 
 	template <class T>
 	struct SflibResult {
@@ -236,6 +260,10 @@ namespace sflib {
 	};
 
 	enum class RemovalMode {
-		Restrict, Cascade, Force,
+		Restrict, Cascade, Force, Recursive, Normal
+	};
+
+	enum class SampleChannel {
+		Mono, Left, Right,
 	};
 }

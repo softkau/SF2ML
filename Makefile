@@ -1,4 +1,8 @@
-SRCS := main.cpp info_manager.cpp sample_manager.cpp instrument_manager.cpp preset_manager.cpp sfmap.cpp sfzone.cpp
+SRCS := main.cpp \
+		sample_manager.cpp instrument_manager.cpp preset_manager.cpp \
+		sfinfo.cpp sfinstrument.cpp sfinstrumentzone.cpp sflib.cpp \
+		sfmap.cpp sfpreset.cpp sfpresetzone.cpp sfsample.cpp
+
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 DEPS := $(patsubst %.cpp,%.d,$(SRCS))
 

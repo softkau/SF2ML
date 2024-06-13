@@ -8,36 +8,19 @@
 #include "sfspec.hpp"
 
 namespace sflib {
-	struct SfHandle {
-		template <typename T> friend class SfHandleInterface;
-		friend class SampleManager;
-		friend struct SampleData;
-		friend class InstrumentManager;
-		friend struct InstData;
-		friend class InstZone;
-		friend class PresetZone;
-
-		auto operator<=>(const SfHandle&) const = default;
-	private:
-		explicit SfHandle(DWORD key=0) : key{key} {}
-		DWORD key;
-	};
+	using SfHandle = uint32_t;
 
 	template <typename DataType>
 	class SfHandleInterface {
 	public:
-		SfHandle EmplaceBack(DataType&& data) {
+		DataType& NewItem() {
 			SfHandle handle { next_key++ };
 			interface.emplace(handle, static_cast<DWORD>(this->data.size()));
-			this->data.emplace_back(std::forward<DataType>(data));
-			return handle;
+			handles.push_back(handle);
+			data.emplace_back(handle);
+			return data.back();
 		}
-		SfHandle PushBack(const DataType& data) {
-			SfHandle handle { next_key++ };
-			interface.emplace(handle, static_cast<DWORD>(this->data.size()));
-			this->data.push_back(data);
-			return handle;
-		}
+		
 		bool Remove(SfHandle handle) {
 			if (auto it = interface.find(handle); it != interface.end()) {
 				DWORD id = it->second;
@@ -45,6 +28,9 @@ namespace sflib {
 
 				std::shift_left(data.begin() + id, data.end(), 1);
 				data.pop_back();
+
+				auto it_handle = std::find(handles.begin(), handles.end(), handle);
+				handles.erase(it_handle);
 				
 				interface.erase(it);
 				for (auto& m : interface) {
@@ -84,8 +70,24 @@ namespace sflib {
 			return std::nullopt;
 		}
 
+		auto GetAllHandles() const
+		-> std::pair<std::vector<SfHandle>::const_iterator, std::vector<SfHandle>::const_iterator> {
+			return std::make_pair(handles.cbegin(), handles.cend());
+		}
+
 		DWORD Count() const {
 			return data.size();
+		}
+
+		template <typename Functor>
+		DWORD CountIf(Functor pred) const {
+			DWORD sz = 0;
+			for (const auto& x : data) {
+				if (pred(x)) {
+					sz++;
+				}
+			}
+			return sz;
 		}
 
 		auto begin() -> typename std::vector<DataType>::iterator {
@@ -104,6 +106,7 @@ namespace sflib {
 		DWORD next_key = 0;
 		std::map<SfHandle, DWORD> interface;
 		std::vector<DataType> data;
+		std::vector<SfHandle> handles;
 	};
 
 }
