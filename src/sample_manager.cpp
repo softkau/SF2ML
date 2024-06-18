@@ -123,7 +123,7 @@ SflibError SampleManager::SerializeSHDR(BYTE* dst, BYTE** end_param) const {
 		shdr.dw_sample_rate  = sample.sample_rate;
 		shdr.by_original_key = sample.root_key;
 		shdr.ch_correction   = sample.pitch_correction;
-		shdr.w_sample_link   = sample.linked_sample;
+		shdr.w_sample_link   = sample.linked_sample.value;
 		shdr.sf_sample_type  = sample.sample_type;
 
 		smpl_idx += smpl_count + z_zone / 2; // update sample starting point
@@ -144,7 +144,7 @@ SflibError SampleManager::SerializeSHDR(BYTE* dst, BYTE** end_param) const {
 	return SFLIB_SUCCESS;
 }
 
-SflibResult<SfHandle> SampleManager::AddMono(
+SflibResult<SmplHandle> SampleManager::AddMono(
 	const void* wav_data,
 	std::size_t wav_size,
 	const std::string& name,
@@ -155,18 +155,18 @@ SflibResult<SfHandle> SampleManager::AddMono(
 ) {
 	auto [wav_info, err] = SampleManager::ValidateWav(wav_data, wav_size);
 	if (err) {
-		return { SfHandle{0}, err };
+		return { SmplHandle{0}, err };
 	}
 	if (wav_info.bit_depth != this->bit_depth) {
-		return { SfHandle{0}, SFLIB_INCOMPATIBLE_BIT_DEPTH };
+		return { SmplHandle{0}, SFLIB_INCOMPATIBLE_BIT_DEPTH };
 	}
 	if (sample_type == SampleChannel::Mono) {
 		if (wav_info.num_of_channels != wav::ChannelMono) { // sample_type(arg) is "Mono", but "Stereo" wav data is given
-			return { SfHandle{0}, SFLIB_NOT_MONO_CHANNEL };
+			return { SmplHandle{0}, SFLIB_NOT_MONO_CHANNEL };
 		}
 	} else {
 		if (wav_info.num_of_channels == wav::ChannelMono) { // sample_type(arg) is "Stereo", but "Mono" wav data is given
-			return { SfHandle{0}, SFLIB_NOT_STEREO_CHANNEL };
+			return { SmplHandle{0}, SFLIB_NOT_STEREO_CHANNEL };
 		}
 	}
 
@@ -211,11 +211,11 @@ SflibResult<SfHandle> SampleManager::AddMono(
 		}
 	}
 	rec.sample_type = monoSample;
-	rec.linked_sample = SfHandle{0};
+	rec.linked_sample = SmplHandle{0};
 	return { rec.GetHandle(), SFLIB_SUCCESS };
 }
 
-SflibResult<std::pair<SfHandle, SfHandle>> SampleManager::AddStereo(
+SflibResult<std::pair<SmplHandle, SmplHandle>> SampleManager::AddStereo(
 	const void* wav_data,
 	size_t wav_size,
 	const std::string& name_left,
@@ -236,12 +236,12 @@ SflibResult<std::pair<SfHandle, SfHandle>> SampleManager::AddStereo(
 			err = err1;
 			Remove(right_smpl, RemovalMode::Normal);
 		}
-		return { {}, err };
+		return { {SmplHandle(0), SmplHandle(0)}, err };
 	}
 	return { { left_smpl, right_smpl }, LinkStereo(left_smpl, right_smpl) };
 }
 
-void SampleManager::Remove(SfHandle target, RemovalMode rm_mode) {
+void SampleManager::Remove(SmplHandle target, RemovalMode rm_mode) {
 	SfSample* smpl_ptr = samples.Get(target);
 	if (!smpl_ptr) {
 		return;
@@ -260,7 +260,7 @@ void SampleManager::Remove(SfHandle target, RemovalMode rm_mode) {
 	samples.Remove(target);
 }
 
-SflibError SampleManager::LinkStereo(SfHandle left, SfHandle right) {
+SflibError SampleManager::LinkStereo(SmplHandle left, SmplHandle right) {
 	SfSample* smpl_left = samples.Get(left);
 	SfSample* smpl_right = samples.Get(right);
 	if (!smpl_left || !smpl_right) {
@@ -356,6 +356,6 @@ SflibResult<WavInfo> SampleManager::ValidateWav(const void* data, size_t size) {
 	};
 }
 
-std::optional<SampleID> SampleManager::GetSampleID(SfHandle target) const {
+std::optional<SampleID> SampleManager::GetSampleID(SmplHandle target) const {
 	return samples.GetID(target);
 }

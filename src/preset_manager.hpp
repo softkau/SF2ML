@@ -1,8 +1,9 @@
 #pragma once
 
-#include "sfspec.hpp"
-#include "sfhandle.hpp"
-#include "sfpreset.hpp"
+#include <sfml/sfspec.hpp>
+#include <sfml/sfhandleinterface.hpp>
+#include <sfml/sfpreset.hpp>
+
 #include <vector>
 #include <map>
 #include <functional>
@@ -16,17 +17,17 @@ namespace sflib {
 
 	class PresetManager {
 	public:
-		PresetManager(SfHandleInterface<SfPreset>& presets, InstrumentManager& inst_manager)\
+		PresetManager(SfHandleInterface<SfPreset, PresetHandle>& presets, InstrumentManager& inst_manager)
 			: presets(presets), instrument_manager(inst_manager) {} // new soundfont
 
 		DWORD ChunkSize() const;
 		SflibError Serialize(BYTE* dst, BYTE** end = nullptr) const;
 
 		SfPreset& NewPreset(std::uint16_t preset_number, std::uint16_t bank_number, const std::string& name);
-		void Remove(SfHandle target);
+		void Remove(PresetHandle target);
 	
 	private:
-		SfHandleInterface<SfPreset>& presets;
+		SfHandleInterface<SfPreset, PresetHandle>& presets;
 		InstrumentManager& instrument_manager;
 	};
 }

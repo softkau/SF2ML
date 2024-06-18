@@ -1,11 +1,11 @@
 #pragma once
 
-#include "sfspec.hpp"
-#include "sfhandle.hpp"
-#include "sfsample.hpp"
-#include "sfinstrument.hpp"
-#include "sfpreset.hpp"
-#include "sfinfo.hpp"
+#include <sfml/sfspec.hpp>
+#include <sfml/sfhandle.hpp>
+#include <sfml/sfsample.hpp>
+#include <sfml/sfinstrument.hpp>
+#include <sfml/sfpreset.hpp>
+#include <sfml/sfinfo.hpp>
 #include <memory>
 #include <functional>
 #include <fstream>
@@ -25,7 +25,7 @@ namespace sflib {
 		// save soundfont structure to disk in .sf2 binary format
 		SflibError Save(std::ofstream& ofs);
 
-		SflibError ExportWav(std::ofstream& ofs, SfHandle sample);
+		SflibError ExportWav(std::ofstream& ofs, SmplHandle sample);
 
 		// get sound font file meta data
 		SfInfo& GetInfo();
@@ -38,58 +38,58 @@ namespace sflib {
 			std::ifstream& ifs,
 			std::string_view name,
 			SampleChannel ch=SampleChannel::Mono
-		) -> SflibResult<SfHandle>;
+		) -> SflibResult<SmplHandle>;
 
 		auto AddMonoSample(
 			const void* file_buf,
 			std::size_t file_size,
 			std::string_view name,
 			SampleChannel ch=SampleChannel::Mono
-		) -> SflibResult<SfHandle>;
+		) -> SflibResult<SmplHandle>;
 
 		auto AddStereoSample(
 			std::ifstream& ifs,
 			std::string_view left,
 			std::string_view right
-		) -> SflibResult<std::pair<SfHandle, SfHandle>>;
+		) -> SflibResult<std::pair<SmplHandle, SmplHandle>>;
 
 		auto AddStereoSample(
 			const void* file_buf,
 			std::size_t file_size,
 			std::string_view left,
 			std::string_view right
-		) -> SflibResult<std::pair<SfHandle, SfHandle>>;
+		) -> SflibResult<std::pair<SmplHandle, SmplHandle>>;
 
-		auto LinkSamples(SfHandle left, SfHandle right) -> SflibError;
+		auto LinkSamples(SmplHandle left, SmplHandle right) -> SflibError;
 
-		auto GetSample(SfHandle smpl) -> SfSample&;
+		auto GetSample(SmplHandle smpl) -> SfSample&;
 
-		void RemoveSample(SfHandle smpl, RemovalMode rm_mode = RemovalMode::Normal);
+		void RemoveSample(SmplHandle smpl, RemovalMode rm_mode = RemovalMode::Normal);
 
 		auto FindSample(std::function<bool(const SfSample&)> pred)
-		-> std::optional<SfHandle>;
+		-> std::optional<SmplHandle>;
 
 		auto FindSamples(std::function<bool(const SfSample&)> pred)
-		-> std::vector<SfHandle>;
+		-> std::vector<SmplHandle>;
 
-		auto AllSamples() -> std::vector<SfHandle>;
+		auto AllSamples() -> std::vector<SmplHandle>;
 
 		SfInstrument& NewInstrument(std::string_view name);
 
-		auto GetInstrument(SfHandle inst) -> SfInstrument&;
+		auto GetInstrument(InstHandle inst) -> SfInstrument&;
 
-		void RemoveInstrument(SfHandle inst, RemovalMode rm_mode=RemovalMode::Normal);
+		void RemoveInstrument(InstHandle inst);
 
 		auto FindInstrument(std::function<bool(const SfInstrument&)> pred)
-		-> std::optional<SfHandle>;
+		-> std::optional<InstHandle>;
 
 		auto FindInstruments(std::function<bool(const SfInstrument&)> pred)
-		-> std::vector<SfHandle>;
+		-> std::vector<InstHandle>;
 		
 		// auto FindInstrumentsReferencing(SfHandle sample)
 		// -> std::vector<SfHandle>;
 
-		auto AllInstruments() -> std::vector<SfHandle>;
+		auto AllInstruments() -> std::vector<InstHandle>;
 
 		SfPreset& NewPreset(
 			std::uint16_t preset_number,
@@ -97,20 +97,20 @@ namespace sflib {
 			std::string_view name
 		);
 
-		auto GetPreset(SfHandle preset) -> SfPreset&;
+		auto GetPreset(PresetHandle preset) -> SfPreset&;
 
-		void RemovePreset(SfHandle preset, RemovalMode rm_mode=RemovalMode::Normal);
+		void RemovePreset(PresetHandle preset);
 
 		auto FindPreset(std::function<bool(const SfPreset&)> pred)
-		-> std::optional<SfHandle>;
+		-> std::optional<PresetHandle>;
 
 		auto FindPresets(std::function<bool(const SfPreset&)> pred)
-		-> std::vector<SfHandle>;
+		-> std::vector<PresetHandle>;
 
 		// auto FindPresetsReferencing(SfHandle instruments)
 		// -> std::vector<SfHandle>;
 
-		auto AllPresets() -> std::vector<SfHandle>;
+		auto AllPresets() -> std::vector<PresetHandle>;
 
 	private:
 		std::unique_ptr<class SoundFontImpl> pimpl;

@@ -1,0 +1,13 @@
+*.vscode
+Soundfont
+*.out
+*.d
+build/
+example/
+install/
+*.tmp
+*.bak
+
+# private stuff
+CMakeLists.txt.bak
+testdoc.txt

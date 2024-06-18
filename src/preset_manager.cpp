@@ -129,6 +129,6 @@ SfPreset& PresetManager::NewPreset(std::uint16_t preset_number,
 	return rec;
 }
 
-void PresetManager::Remove(SfHandle target) {
+void PresetManager::Remove(PresetHandle target) {
 	presets.Remove(target);
 }

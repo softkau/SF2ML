@@ -9,15 +9,19 @@
 #include <cassert>
 
 namespace sflib {
-	class InstrumentManager;
+	class SampleManager;
+	
+	enum class LoopMode {
+		NoLoop, Loop, LoopWithRemainder
+	};
 
-	class SfPresetZone {
+	class SfInstrumentZone {
 		friend class SoundFontImpl;
-		SfHandle self_handle;
+		IZoneHandle self_handle;
 	public:
-		SfPresetZone(SfHandle handle) : self_handle(handle) {}; // new zone
+		SfInstrumentZone(IZoneHandle handle) : self_handle(handle) {}; // new zone
 
-		SfHandle GetHandle() const { return self_handle; }
+		IZoneHandle GetHandle() const { return self_handle; }
 
 		DWORD RequiredSize() const;
 
@@ -29,10 +33,10 @@ namespace sflib {
 		}
 		bool HasModulator(SFModulator type) const { return false; }
 
-		SfPresetZone& CopyProperties(const SfPresetZone& zone);
-		SfPresetZone& MoveProperties(SfPresetZone&& zone);
+		SfInstrumentZone& CopyProperties(const SfInstrumentZone& zone);
+		SfInstrumentZone& MoveProperties(SfInstrumentZone&& zone);
 
-		SflibError SerializeGenerators(BYTE* dst, BYTE** end, const InstrumentManager& inst_manager) const;
+		SflibError SerializeGenerators(BYTE* dst, BYTE** end, const SampleManager& sample_manager) const;
 
 		// @return degree, in cents, to which a full scale excursion of Modulation LFO will influence pitch
 		auto GetModLfoToPitch() const -> std::int16_t;
@@ -110,91 +114,146 @@ namespace sflib {
 		auto GetScaleTuning() const -> std::int16_t;
 
 		// @param x cents(-12000 ~ 12000 inclusive), by which a full scale excursion of Modulation LFO will influence pitch
-		auto SetModLfoToPitch(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetModLfoToPitch(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x cents(-12000 ~ 12000 inclusive), by which a full scale excursion of Vibrato LFO will influence pitch
-		auto SetVibLfoToPitch(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetVibLfoToPitch(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x cents(-12000 ~ 12000 inclusive), by which a full scale excursion of Modulation Envelope will influence pitch
-		auto SetModEnvToPitch(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetModEnvToPitch(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x cutoff/resonant frequency, in Hz(20.0 ~ 20000.0 inclusive), of the lowpass filter(20kHz indicates that the filter will be bypassed)
-		auto SetInitialFilterFc(std::optional<double> x) -> SfPresetZone&;
+		auto SetInitialFilterFc(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x Q value, in centi-bels(0* ~ 960 inclusive), of the lowpass filter
-		auto SetInitialFilterQ(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetInitialFilterQ(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x cents(-12000 ~ 12000 inclusive), by which a full scale excursion of Modulation LFO will influence filter cutoff frequency
-		auto SetModLfoToFilterFc(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetModLfoToFilterFc(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x cents(-12000 ~ 12000 inclusive), by which a full scale excursion of Modulation Envelope will influence filter cutoff frequency
-		auto SetModEnvToFilterFc(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetModEnvToFilterFc(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x centi-bels(-960 ~ 960 inclusive), by which a full scale excursion of Modulation LFO will influence volume 
-		auto SetModLfoToVolume(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetModLfoToVolume(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x 0.1% units(0* ~ 1000 inclusive), by which the audio output of the note is sent to the chorus effect processor
-		auto SetChorusEffectsSend(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetChorusEffectsSend(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x 0.1% units(0* ~ 1000 inclusive), by which the audio output of the note is sent to the reverb effect processor
-		auto SetReverbEffectsSend(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetReverbEffectsSend(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x 0.1% units(-500 ~ 500 inclusive), by which the dry audio output of the note is positioned to the left or right output
-		auto SetPan(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetPan(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x delay time, in secs(0.001 ~ 20.0), of Modulation LFO
-		auto SetDelayModLFO(std::optional<double> x) -> SfPresetZone&;
+		auto SetDelayModLFO(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x frequency, in Hz(0.001 ~ 100.0), of Modulation LFO (triangluar period)
-		auto SetFreqModLFO(std::optional<double> x) -> SfPresetZone&;
+		auto SetFreqModLFO(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x delay time, in secs(0.001 ~ 20.0), of Vibrato LFO
-		auto SetDelayVibLFO(std::optional<double> x) -> SfPresetZone&;
+		auto SetDelayVibLFO(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x frequency, in Hz(0.001 ~ 100.0), of Vibrato LFO (triangluar period)
-		auto SetFreqVibLFO(std::optional<double> x) -> SfPresetZone&;
+		auto SetFreqVibLFO(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x delay time, in secs(0.001 ~ 20.0), of Modulation Envelope
-		auto SetDelayModEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetDelayModEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x attack time, in secs(0.001 ~ 100.0), of Modulation Envelope
-		auto SetAttackModEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetAttackModEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x hold time, in secs(0.001 ~ 20.0), of Modulation Envelope
-		auto SetHoldModEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetHoldModEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x decay time, in secs(0.001 ~ 100.0), of Modulation Envelope
-		auto SetDecayModEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetDecayModEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x sustain level, in 0.1% units(0* ~ 1000*), of Modulation Envelope
-		auto SetSustainModEnv(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetSustainModEnv(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x release time, in secs(0.001 ~ 100.0), of Modulation Envelope
-		auto SetReleaseModEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetReleaseModEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x hold time, in tcent/key unit(-1200 ~ 1200), of Modulation Envelope based on key number
-		auto SetKeynumToModEnvHold(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetKeynumToModEnvHold(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x decay time, in tcent/key unit(-1200 ~ 1200), of Modulation Envelope based on key number
-		auto SetKeynumToModEnvDecay(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetKeynumToModEnvDecay(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x delay time, in secs(0.001 ~ 20.0), of Volume Envelope
-		auto SetDelayVolEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetDelayVolEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x attack time, in secs(0.001 ~ 100.0), of Volume Envelope
-		auto SetAttackVolEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetAttackVolEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x hold time, in secs(0.001 ~ 20.0), of Volume Envelope
-		auto SetHoldVolEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetHoldVolEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x decay time, in secs(0.001 ~ 100.0), of Volume Envelope
-		auto SetDecayVolEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetDecayVolEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x sustain level, in centi-bels(0* ~ 1440), of Volume Envelope
-		auto SetSustainVolEnv(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetSustainVolEnv(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x release time, in secs(0.001 ~ 100.0), of Volume Envelope
-		auto SetReleaseVolEnv(std::optional<double> x) -> SfPresetZone&;
+		auto SetReleaseVolEnv(std::optional<double> x) -> SfInstrumentZone&;
 		// @param x hold time, in tcent/key unit(-1200 ~ 1200), of Volume Envelope based on key number
-		auto SetKeynumToVolEnvHold(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetKeynumToVolEnvHold(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x decay time, in tcent/key unit(-1200 ~ 1200), of Volume Envelope based on key number
-		auto SetKeynumToVolEnvDecay(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetKeynumToVolEnvDecay(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x key range(0-127) (minmax MIDI key number ranges in which the zone is active)
-		auto SetKeyRange(std::optional<Ranges<std::uint8_t>> x) -> SfPresetZone&;
+		auto SetKeyRange(std::optional<Ranges<std::uint8_t>> x) -> SfInstrumentZone&;
 		// @param x vel range(0-127) (minmax MIDI velocity ranges in which the zone is active)
-		auto SetVelRange(std::optional<Ranges<std::uint8_t>> x) -> SfPresetZone&;
+		auto SetVelRange(std::optional<Ranges<std::uint8_t>> x) -> SfInstrumentZone&;
 		// @param x attenuation, in centi-bels(0* ~ 1440), by which a note is attenuated below full scale
-		auto SetInitialAttenuation(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetInitialAttenuation(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x pitch offset, in semitones(-120 ~ 120)
-		auto SetCoarseTune(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetCoarseTune(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x pitch offset, in cents(-99 ~ 99)
-		auto SetFineTune(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetFineTune(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x degree(0 ~ 1200) to which MIDI key number influences pitch
-		auto SetScaleTuning(std::optional<std::int16_t> x) -> SfPresetZone&;
+		auto SetScaleTuning(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 
 		//
-		// (below properties are Preset Zone Exclusives!)
+		// (below properties are Instrument Zone Exclusives!)
 		//
 
-		auto GetInstrument() const -> std::optional<SfHandle>;
-		auto SetInstrument(std::optional<SfHandle> x) -> SfPresetZone&;
+		// @return offset, in sample data points
+		auto GetStartAddrsOffset() const       -> std::int16_t; 
+		// @return offset, in sample data points
+		auto GetEndAddrsOffset() const         -> std::int16_t;
+		// @return offset, in sample data points
+		auto GetStartloopAddrsOffset() const   -> std::int16_t;
+		// @return offset, in sample data points
+		auto GetEndloopAddrsOffset() const     -> std::int16_t;
+		// @return offset, in 32768 sample data points
+		auto GetStartAddrsCoarseOffset() const     -> std::int16_t;
+		// @return offset, in 32768 sample data points
+		auto GetEndAddrsCoarseOffset() const       -> std::int16_t;
+		// @return offset, in 32768 sample data points
+		auto GetStartloopAddrsCoarseOffset() const -> std::int16_t;
+		// @return offset, in 32768 sample data points
+		auto GetEndloopAddrsCoarseOffset() const   -> std::int16_t;
+		// @return overriden MIDI key number
+		auto GetKeynum() const -> std::int16_t;
+		// @return overriden MIDI velocity value
+		auto GetVelocity() const -> std::int16_t;
+		// @return handle of sample to which the zone is linked
+		auto GetSampleHandle() const -> std::optional<SmplHandle>;
+		// @return loop mode with which the zone plays the sample
+		auto GetSampleModes() const -> LoopMode;
+		// @return exclusive class id; only one instrument can be played for one exclusive class(excpet zero class) (scope: its presetl)
+		auto GetExclusiveClass() const -> std::int16_t;
+		// @return MIDI key number of overriding rootkey
+		auto GetOverridingRootKey() const -> std::int16_t;
+
+		// @param x offset, in sample data points
+		auto SetStartAddrsOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&; 
+		// @param x offset, in sample data points
+		auto SetEndAddrsOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in sample data points
+		auto SetStartloopAddrsOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in sample data points
+		auto SetEndloopAddrsOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in 32768 sample data points
+		auto SetStartAddrsCoarseOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in 32768 sample data points
+		auto SetEndAddrsCoarseOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in 32768 sample data points
+		auto SetStartloopAddrsCoarseOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x offset, in 32768 sample data points
+		auto SetEndloopAddrsCoarseOffset(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x overriden MIDI key number
+		auto SetKeynum(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x overriden MIDI velocity value
+		auto SetVelocity(std::optional<std::int16_t> x) -> SfInstrumentZone&;
+		// @param x handle of sample to which the zone is linked
+		auto SetSampleHandle(std::optional<SmplHandle> x) -> SfInstrumentZone&;
+		// @param x loop mode with which the zone plays the sample
+		auto SetSampleModes(std::optional<LoopMode> x) -> SfInstrumentZone&;
+		// @param x exclusive class id; only one instrument can be played for one exclusive class(excpet zero class) (scope: its presetl)
+		auto SetExclusiveClass(std::optional<std::int16_t>) -> SfInstrumentZone&;
+		// @param x MIDI key number of overriding rootkey
+		auto SetOverridingRootKey(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 
 	private:
 		// Modulators are currently not defined...
 		std::bitset<SfGenEndOper> active_gens {};
 		std::array<spec::GenAmountType, SfGenEndOper> generators;
-		std::optional<SfHandle> instrument;
+		std::optional<SmplHandle> sample;
 	};
 }

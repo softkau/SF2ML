@@ -1,4 +1,4 @@
-#include "sfpresetzone.hpp"
+#include <sfml/sfpresetzone.hpp>
 #include "instrument_manager.hpp"
 #include <cmath>
 #include <climits>
@@ -216,11 +216,11 @@ PZONE_S16_PLAIN_SETTER_IMPL(CoarseTune)
 PZONE_S16_PLAIN_SETTER_IMPL(FineTune)
 PZONE_S16_PLAIN_SETTER_IMPL(ScaleTuning)
 
-auto SfPresetZone::GetInstrument() const -> std::optional<SfHandle> {
+auto SfPresetZone::GetInstrument() const -> std::optional<InstHandle> {
 	return instrument;
 }
 
-auto SfPresetZone::SetInstrument(std::optional<SfHandle> x) -> SfPresetZone& {
+auto SfPresetZone::SetInstrument(std::optional<InstHandle> x) -> SfPresetZone& {
 	if (x.has_value()) {
 		active_gens.set(SfGenInstrument);
 		instrument = x;

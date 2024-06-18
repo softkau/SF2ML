@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sfspec.hpp"
+#include <sfml/sfspec.hpp>
 
 namespace sflib {
 	struct SfbkMap {

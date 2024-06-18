@@ -124,39 +124,10 @@ SfInstrument& InstrumentManager::NewInstrument(const std::string& name) {
 	return data;
 }
 
-void InstrumentManager::Remove(SfHandle target, RemovalMode rm_mode) {
-	auto* inst = insts.Get(target);
-	if (inst) {
-		auto zones = inst->FindZones([](const SfInstrumentZone& x) { return x.HasGenerator(SfGenSampleID); });
-		for (SfHandle zone : zones) {
-			SfHandle smpl_hand = *inst->GetZone(zone).GetSampleHandle();
-			SfSample* smpl = sample_manager.Get(smpl_hand);
-			if (!smpl) { // sample has been deleted
-				continue;
-			}
-			auto it = smpl_ref_count.find(smpl_hand);
-			it->second--;
-
-			if (rm_mode == RemovalMode::Recursive) {
-				auto linked_smpl_hand = smpl->GetLink();
-
-				int ref_count = 0;
-				ref_count += it->second;
-
-				if (linked_smpl_hand) {
-					auto it = smpl_ref_count.find(*linked_smpl_hand);
-					ref_count += it->second;
-				}
-				assert(ref_count >= 0);
-				if (ref_count == 0) {
-					sample_manager.Remove(smpl_hand, RemovalMode::Recursive);
-				}
-			}
-		}
-		insts.Remove(target);
-	}
+void InstrumentManager::Remove(InstHandle target) {
+	insts.Remove(target);
 }
 
-std::optional<InstID> InstrumentManager::GetInstID(SfHandle target) const {
+std::optional<InstID> InstrumentManager::GetInstID(InstHandle target) const {
 	return insts.GetID(target);
 }

@@ -1,4 +1,4 @@
-#include "sfsample.hpp"
+#include <sfml/sfsample.hpp>
 
 using namespace sflib;
 
@@ -27,7 +27,7 @@ SfSample& SfSample::SetPitchCorrection(std::int8_t value) {
 	return *this;
 }
 
-SfSample& SfSample::SetLink(std::optional<SfHandle> smpl) {
+SfSample& SfSample::SetLink(std::optional<SmplHandle> smpl) {
 	constexpr auto RomSampleFlag = RomLeftSample & RomRightSample;
 
 	if (smpl.has_value()) {
@@ -38,7 +38,7 @@ SfSample& SfSample::SetLink(std::optional<SfHandle> smpl) {
 			this->sample_type = leftSample;
 		}
 	} else {
-		this->linked_sample = SfHandle(0);
+		this->linked_sample = SmplHandle{0};
 		if (this->sample_type & RomSampleFlag) {
 			this->sample_type = RomMonoSample;
 		} else {
@@ -51,7 +51,7 @@ SfSample& SfSample::SetLink(std::optional<SfHandle> smpl) {
 SfSample& SfSample::SetSampleMode(SFSampleLink mode) {
 	this->sample_type = mode;
 	if (mode == monoSample || mode == RomMonoSample) {
-		this->linked_sample = SfHandle(0);
+		this->linked_sample = SmplHandle{0};
 	}
 	return *this;
 }
@@ -98,7 +98,7 @@ int8_t sflib::SfSample::GetPitchCorrection() const {
 	return pitch_correction;
 }
 
-std::optional<SfHandle> sflib::SfSample::GetLink() const {
+std::optional<SmplHandle> sflib::SfSample::GetLink() const {
 	if (sample_type & (leftSample | rightSample)) {
 		return linked_sample;
 	} else {

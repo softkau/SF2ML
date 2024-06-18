@@ -1,9 +1,10 @@
 #pragma once
 
-#include "sfspec.hpp"
-#include "wavspec.hpp"
-#include "sfhandle.hpp"
-#include "sfsample.hpp"
+#include <sfml/sfspec.hpp>
+#include <sfml/wavspec.hpp>
+#include <sfml/sfhandleinterface.hpp>
+#include <sfml/sfsample.hpp>
+
 #include <optional>
 #include <string>
 
@@ -12,7 +13,7 @@ namespace sflib {
 
 	class SampleManager {
 	public:
-		SampleManager(SfHandleInterface<SfSample>& samples, SampleBitDepth bit_depth)
+		SampleManager(SfHandleInterface<SfSample, SmplHandle>& samples, SampleBitDepth& bit_depth)
 			: samples(samples), bit_depth(bit_depth) {}
 
 		void SetZeroZone(int count);
@@ -29,7 +30,7 @@ namespace sflib {
 			std::optional<uint16_t> root_key = std::nullopt,
 			std::optional<int16_t> pitch_correction = std::nullopt,
 			SampleChannel sample_type = SampleChannel::Mono
-		) -> SflibResult<SfHandle>;
+		) -> SflibResult<SmplHandle>;
 
 		auto AddStereo(
 			const void* wav_data,
@@ -39,22 +40,24 @@ namespace sflib {
 			std::optional<Ranges<uint32_t>> loop = std::nullopt,
 			std::optional<uint16_t> root_key = std::nullopt,
 			std::optional<int16_t> pitch_correction = std::nullopt
-		) -> SflibResult<std::pair<SfHandle, SfHandle>>;
+		) -> SflibResult<std::pair<SmplHandle, SmplHandle>>;
 
-		SfSample* Get(SfHandle handle) { return samples.Get(handle); }
+		SfSample* Get(SmplHandle handle) { return samples.Get(handle); }
 
-		void Remove(SfHandle target, RemovalMode rm_mode);
+		void Remove(SmplHandle target, RemovalMode rm_mode);
 
-		SflibError LinkStereo(SfHandle left, SfHandle right);
+		SflibError LinkStereo(SmplHandle left, SmplHandle right);
 
 		static SflibResult<WavInfo> ValidateWav(const void* data, size_t size);
 
 		// should only be used for serializing purposes
-		std::optional<SampleID> GetSampleID(SfHandle target) const;
+		std::optional<SampleID> GetSampleID(SmplHandle target) const;
+
+		// TODO: mehtod to change sample bit depth
 
 	private:
-		SfHandleInterface<SfSample>& samples;
-		SampleBitDepth bit_depth = SampleBitDepth::Signed16;
+		SfHandleInterface<SfSample, SmplHandle>& samples;
+		SampleBitDepth& bit_depth;
 		int z_zone = 46; // zero zone size (which exists in between sample data)
 	};
 

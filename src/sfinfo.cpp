@@ -1,4 +1,4 @@
-#include "sfinfo.hpp"
+#include <sfml/sfinfo.hpp>
 #include <cassert>
 
 using namespace sflib;

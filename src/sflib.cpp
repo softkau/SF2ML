@@ -1,14 +1,15 @@
-#include "sfspec.hpp"
-#include "sfhandle.hpp"
-#include "sflib.hpp"
 #include "sfmap.hpp"
-#include "sfinfo.hpp"
-#include "sfsample.hpp"
 #include "sample_manager.hpp"
-#include "sfinstrument.hpp"
 #include "instrument_manager.hpp"
-#include "sfpreset.hpp"
 #include "preset_manager.hpp"
+
+#include <sfml/sfinstrument.hpp>
+#include <sfml/sfpreset.hpp>
+#include <sfml/sfsample.hpp>
+#include <sfml/sfinfo.hpp>
+#include <sfml/sfhandle.hpp>
+#include <sfml/sfspec.hpp>
+#include <sflib.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -24,88 +25,13 @@ namespace sflib {
 		return sz;
 	}
 
-	class RefTracker {
-	public:
-		using HandleList = std::vector<SfHandle>;
-	private:
-		std::map<SfHandle, HandleList> a_to_b;
-		std::map<SfHandle, HandleList> b_to_a;
-	public:
-		void Reset() {
-			a_to_b.clear();
-			b_to_a.clear();
-		}
-
-		auto GetHandleReferencedBy(SfHandle a) const
-		-> std::optional<std::pair<HandleList::const_iterator, HandleList::const_iterator>> {
-			auto it = a_to_b.find(a);
-			if (it == a_to_b.end()) {
-				return std::nullopt;
-			} else {
-				return std::make_pair(it->second.cbegin(), it->second.cend());
-			}
-		}
-		auto GetHandleReferencing(SfHandle b) const
-		-> std::optional<std::pair<HandleList::const_iterator, HandleList::const_iterator>> {
-			auto it = b_to_a.find(b);
-			if (it == b_to_a.end()) {
-				return std::nullopt;
-			} else {
-				return std::make_pair(it->second.cbegin(), it->second.cend());
-			}
-		}
-
-		bool AddRef(SfHandle a, SfHandle b) {
-			auto it1 = a_to_b.find(a);
-			if (it1 == a_to_b.end()) {
-				auto r = a_to_b.try_emplace(a, std::initializer_list<SfHandle>{b});
-				return r.second;
-			} else {
-				it1->second.push_back(b);
-				return true;
-			}
-			auto it2 = b_to_a.find(b);
-			if (it2 == b_to_a.end()) {
-				auto r = b_to_a.try_emplace(b, std::initializer_list<SfHandle>{a});
-				return r.second;
-			} else {
-				it2->second.push_back(a);
-				return true;
-			}
-		}
-
-		void RemoveRef(SfHandle a, SfHandle b) {
-			auto it1 = a_to_b.find(a);
-			if (it1 != a_to_b.end()) {
-				auto& ref_list = it1->second;
-				auto it = std::find(ref_list.begin(), ref_list.end(), b);
-				if (it != ref_list.end()) {
-					ref_list.erase(it);
-					if (ref_list.empty()) {
-						a_to_b.erase(it1);
-					}
-				}
-			}
-			auto it2 = b_to_a.find(b);
-			if (it2 != b_to_a.end()) {
-				auto& ref_list = it2->second;
-				auto it = std::find(ref_list.begin(), ref_list.end(), a);
-				if (it != ref_list.end()) {
-					ref_list.erase(it);
-					if (ref_list.empty()) {
-						b_to_a.erase(it2);
-					}
-				}
-			}
-		}
-	};
-
 	class SoundFontImpl {
 		friend class SoundFont;
 
 		public:
-		SoundFontImpl() : sample_manager(samples, SampleBitDepth::Signed16),
-		                  instrument_manager(instruments, sample_manager, sample_reference_count),
+		SoundFontImpl() : bit_depth(SampleBitDepth::Signed16),
+		                  sample_manager(samples, bit_depth),
+		                  instrument_manager(instruments, sample_manager),
 						  preset_manager(presets, instrument_manager) {}
 		private:
 
@@ -117,17 +43,15 @@ namespace sflib {
 		SflibError LoadPresetZone(SfPresetZone& dst, const BYTE* buf, DWORD count);
 		SflibError LoadInstrumentZone(SfInstrumentZone& dst, const BYTE* buf, DWORD count);
 
-		SfHandleInterface<SfSample> samples;
-		SfHandleInterface<SfInstrument> instruments;
-		SfHandleInterface<SfPreset> presets;
-
-		std::map<SfHandle, int> sample_reference_count; 
+		SampleBitDepth bit_depth;
+		SfHandleInterface<SfSample, SmplHandle> samples;
+		SfHandleInterface<SfInstrument, InstHandle> instruments;
+		SfHandleInterface<SfPreset, PresetHandle> presets;
 
 		SfInfo infos;
 		SampleManager sample_manager;
 		InstrumentManager instrument_manager;
 		PresetManager preset_manager;
-		SampleBitDepth bit_depth = SampleBitDepth::Signed16;
 	};
 
 	SoundFont::SoundFont() {
@@ -230,7 +154,7 @@ namespace sflib {
 		return SFLIB_SUCCESS;
 	}
 
-	SflibError SoundFont::ExportWav(std::ofstream& ofs, SfHandle sample) {
+	SflibError SoundFont::ExportWav(std::ofstream& ofs, SmplHandle sample) {
 		return SFLIB_FAILED;
 	}
 
@@ -357,11 +281,11 @@ namespace sflib {
 			rec.end_loop    = cur_shdr.dw_endloop - cur_shdr.dw_start;
 			rec.root_key    = cur_shdr.by_original_key;
 			rec.pitch_correction = cur_shdr.ch_correction;
-			rec.linked_sample = 0;
+			rec.linked_sample = SmplHandle(0);
 			rec.sample_type = cur_shdr.sf_sample_type;
 			if (rec.sample_type & (leftSample | rightSample)) {
 				// when loading from file, sample id == sample handle
-				rec.linked_sample = cur_shdr.w_sample_link;
+				rec.linked_sample = SmplHandle(cur_shdr.w_sample_link);
 			}
 
 			// first case: the record is ROM sample(not implemented).
@@ -418,7 +342,7 @@ namespace sflib {
 				const size_t gen_end = bag_next.w_inst_gen_ndx;
 
 				const BYTE* gen_ptr = pdta.igen + 8 + gen_start * sizeof(spec::SfInstGenList);
-				SfInstrumentZone zone(0);
+				SfInstrumentZone zone(IZoneHandle(0));
 				LoadInstrumentZone(zone, gen_ptr, gen_end - gen_start);
 
 				if (zone.IsEmpty()) {
@@ -468,7 +392,7 @@ namespace sflib {
 
 				const BYTE* gen_ptr = pdta.pgen + 8 + gen_start * sizeof(spec::SfGenList);
 				
-				SfPresetZone zone(0);
+				SfPresetZone zone(PZoneHandle(0));
 				LoadPresetZone(zone, gen_ptr, gen_end - gen_start);
 
 				if (zone.IsEmpty()) {
@@ -486,7 +410,7 @@ namespace sflib {
 		return SFLIB_SUCCESS;
 	}
 
-	auto SoundFont::AddMonoSample(std::ifstream &ifs, std::string_view name, SampleChannel ch) -> SflibResult<SfHandle> {
+	auto SoundFont::AddMonoSample(std::ifstream &ifs, std::string_view name, SampleChannel ch) -> SflibResult<SmplHandle> {
 		std::size_t size = GetFileSize(ifs);
 		std::vector<char> buf(size);
 		ifs.read(buf.data(), size);
@@ -494,7 +418,7 @@ namespace sflib {
 		return AddMonoSample(buf.data(), size, name, ch);
 	}
 
-	auto SoundFont::AddMonoSample(const void* file_buf, std::size_t file_size, std::string_view name, SampleChannel ch) -> SflibResult<SfHandle> {
+	auto SoundFont::AddMonoSample(const void* file_buf, std::size_t file_size, std::string_view name, SampleChannel ch) -> SflibResult<SmplHandle> {
 		return pimpl->sample_manager.AddMono(
 			file_buf,
 			file_size,
@@ -506,7 +430,7 @@ namespace sflib {
 		);
 	}
 
-	auto SoundFont::AddStereoSample(std::ifstream& ifs, std::string_view left, std::string_view right) -> SflibResult<std::pair<SfHandle, SfHandle>> {
+	auto SoundFont::AddStereoSample(std::ifstream& ifs, std::string_view left, std::string_view right) -> SflibResult<std::pair<SmplHandle, SmplHandle>> {
 		std::size_t size = GetFileSize(ifs);
 		std::vector<char> buf(size);
 		ifs.read(buf.data(), size);
@@ -514,7 +438,7 @@ namespace sflib {
 		return AddStereoSample(buf.data(), size, left, right);
 	}
 
-	auto SoundFont::AddStereoSample(const void* file_buf, std::size_t file_size, std::string_view left, std::string_view right) -> SflibResult<std::pair<SfHandle, SfHandle>> {
+	auto SoundFont::AddStereoSample(const void* file_buf, std::size_t file_size, std::string_view left, std::string_view right) -> SflibResult<std::pair<SmplHandle, SmplHandle>> {
 		return pimpl->sample_manager.AddStereo(
 			file_buf,
 			file_size,
@@ -523,19 +447,19 @@ namespace sflib {
 		);
 	}
 	
-	auto SoundFont::LinkSamples(SfHandle left, SfHandle right) -> SflibError {
+	auto SoundFont::LinkSamples(SmplHandle left, SmplHandle right) -> SflibError {
 		return pimpl->sample_manager.LinkStereo(left, right);
 	}
 
-	auto SoundFont::GetSample(SfHandle smpl) -> SfSample& {
+	auto SoundFont::GetSample(SmplHandle smpl) -> SfSample& {
 		return *pimpl->samples.Get(smpl);
 	}
 
-	void SoundFont::RemoveSample(SfHandle smpl, RemovalMode rm_mode) {
+	void SoundFont::RemoveSample(SmplHandle smpl, RemovalMode rm_mode) {
 		pimpl->sample_manager.Remove(smpl, rm_mode);
 	}
 
-	auto SoundFont::FindSample(std::function<bool(const SfSample &)> pred) -> std::optional<SfHandle> {
+	auto SoundFont::FindSample(std::function<bool(const SfSample &)> pred) -> std::optional<SmplHandle> {
 		for (const auto& sample : pimpl->samples) {
 			if (pred(sample)) {
 				return sample.GetHandle();
@@ -544,8 +468,8 @@ namespace sflib {
 		return std::nullopt;
 	}
 
-	auto SoundFont::FindSamples(std::function<bool(const SfSample &)> pred) -> std::vector<SfHandle> {
-		std::vector<SfHandle> handles;
+	auto SoundFont::FindSamples(std::function<bool(const SfSample &)> pred) -> std::vector<SmplHandle> {
+		std::vector<SmplHandle> handles;
 		for (const auto& sample : pimpl->samples) {
 			if (pred(sample)) {
 				handles.push_back(sample.GetHandle());
@@ -554,24 +478,24 @@ namespace sflib {
 		return handles;
 	}
 
-	auto SoundFont::AllSamples() -> std::vector<SfHandle> {
+	auto SoundFont::AllSamples() -> std::vector<SmplHandle> {
 		auto [first, last] = pimpl->samples.GetAllHandles();
-		return std::vector<SfHandle>(first, last);
+		return std::vector<SmplHandle>(first, last);
 	}
 
 	SfInstrument& SoundFont::NewInstrument(std::string_view name) {
 		return pimpl->instrument_manager.NewInstrument(std::string(name));
 	}
 
-	auto SoundFont::GetInstrument(SfHandle inst) -> SfInstrument& {
+	auto SoundFont::GetInstrument(InstHandle inst) -> SfInstrument& {
 		return *pimpl->instruments.Get(inst);
 	}
 
-	void SoundFont::RemoveInstrument(SfHandle inst, RemovalMode rm_mode) {
-		pimpl->instrument_manager.Remove(inst, rm_mode);
+	void SoundFont::RemoveInstrument(InstHandle inst) {
+		pimpl->instrument_manager.Remove(inst);
 	}
 
-	auto SoundFont::FindInstrument(std::function<bool(const SfInstrument &)> pred) -> std::optional<SfHandle> {
+	auto SoundFont::FindInstrument(std::function<bool(const SfInstrument &)> pred) -> std::optional<InstHandle> {
 		for (const auto& inst : pimpl->instruments) {
 			if (pred(inst)) {
 				return inst.GetHandle();
@@ -580,8 +504,8 @@ namespace sflib {
 		return std::nullopt;
 	}
 
-	auto SoundFont::FindInstruments(std::function<bool(const SfInstrument &)> pred) -> std::vector<SfHandle> {
-		std::vector<SfHandle> handles;
+	auto SoundFont::FindInstruments(std::function<bool(const SfInstrument &)> pred) -> std::vector<InstHandle> {
+		std::vector<InstHandle> handles;
 		for (const auto& inst : pimpl->instruments) {
 			if (pred(inst)) {
 				handles.push_back(inst.GetHandle());
@@ -590,9 +514,9 @@ namespace sflib {
 		return handles;
 	}
 
-	auto SoundFont::AllInstruments() -> std::vector<SfHandle> {
+	auto SoundFont::AllInstruments() -> std::vector<InstHandle> {
 		auto [first, last] = pimpl->instruments.GetAllHandles();
-		return std::vector<SfHandle>(first, last);
+		return std::vector<InstHandle>(first, last);
 	}
 
 	SfPreset& SoundFont::NewPreset(std::uint16_t preset_number,
@@ -602,15 +526,15 @@ namespace sflib {
 			preset_number, bank_number, std::string(name));
 	}
 
-	auto SoundFont::GetPreset(SfHandle preset) -> SfPreset& {
+	auto SoundFont::GetPreset(PresetHandle preset) -> SfPreset& {
 		return *pimpl->presets.Get(preset);
 	}
 
-	void SoundFont::RemovePreset(SfHandle preset, RemovalMode rm_mode) {
+	void SoundFont::RemovePreset(PresetHandle preset) {
 		pimpl->preset_manager.Remove(preset);
 	}
 
-	auto SoundFont::FindPreset(std::function<bool(const SfPreset &)> pred) -> std::optional<SfHandle> {
+	auto SoundFont::FindPreset(std::function<bool(const SfPreset &)> pred) -> std::optional<PresetHandle> {
 		for (const auto& preset : pimpl->presets) {
 			if (pred(preset)) {
 				return preset.GetHandle();
@@ -619,8 +543,8 @@ namespace sflib {
 		return std::nullopt;
 	}
 
-	auto SoundFont::FindPresets(std::function<bool(const SfPreset &)> pred) -> std::vector<SfHandle> {
-		std::vector<SfHandle> handles;
+	auto SoundFont::FindPresets(std::function<bool(const SfPreset &)> pred) -> std::vector<PresetHandle> {
+		std::vector<PresetHandle> handles;
 		for (const auto& preset : pimpl->presets) {
 			if (pred(preset)) {
 				handles.push_back(preset.GetHandle());
@@ -629,9 +553,9 @@ namespace sflib {
 		return handles;
 	}
 
-	auto SoundFont::AllPresets() -> std::vector<SfHandle> {
+	auto SoundFont::AllPresets() -> std::vector<PresetHandle> {
 		auto [first, last] = pimpl->presets.GetAllHandles();
-		return std::vector<SfHandle>(first, last);
+		return std::vector<PresetHandle>(first, last);
 	}
 
 	SflibError SoundFontImpl::LoadPresetZone(SfPresetZone& dst, const BYTE* buf, DWORD count) {
@@ -644,7 +568,7 @@ namespace sflib {
 			dst.active_gens.set(gen.sf_gen_oper);
 		}
 		if (dst.active_gens[SfGenInstrument]) {
-			dst.instrument = SfHandle(dst.generators[SfGenInstrument].w_amount);
+			dst.instrument = InstHandle{dst.generators[SfGenInstrument].w_amount};
 		}
 		return SFLIB_SUCCESS;
 	}
@@ -659,7 +583,7 @@ namespace sflib {
 			dst.active_gens.set(gen.sf_gen_oper);
 		}
 		if (dst.active_gens[SfGenSampleID]) {
-			dst.sample= SfHandle(dst.generators[SfGenSampleID].w_amount);
+			dst.sample = SmplHandle{dst.generators[SfGenSampleID].w_amount};
 		}
 		return SFLIB_SUCCESS;
 	}

@@ -1,4 +1,4 @@
-#include "sfinstrumentzone.hpp"
+#include <sfml/sfinstrumentzone.hpp>
 #include "sample_manager.hpp"
 #include <cmath>
 #include <climits>
@@ -241,7 +241,7 @@ IZONE_S16_PLAIN_SETTER_IMPL(Velocity)
 IZONE_S16_PLAIN_SETTER_IMPL(ExclusiveClass)
 IZONE_S16_PLAIN_SETTER_IMPL(OverridingRootKey)
 
-auto SfInstrumentZone::GetSampleHandle() const -> std::optional<SfHandle> {
+auto SfInstrumentZone::GetSampleHandle() const -> std::optional<SmplHandle> {
 	return sample;
 }
 
@@ -258,7 +258,7 @@ auto SfInstrumentZone::GetSampleModes() const -> LoopMode {
 	}
 }
 
-auto SfInstrumentZone::SetSampleHandle(std::optional<SfHandle> x) -> SfInstrumentZone& {
+auto SfInstrumentZone::SetSampleHandle(std::optional<SmplHandle> x) -> SfInstrumentZone& {
 	if (x.has_value()) {
 		sample = x;
 		active_gens.set(SfGenSampleID);

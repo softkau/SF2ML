@@ -25,16 +25,16 @@ namespace sflib {
 
 	class SfSample {
 	public:
-		SfSample(SfHandle handle) : self_handle(handle) {}
+		SfSample(SmplHandle handle) : self_handle(handle) {}
 
 		SfSample& SetName(std::string_view name);
 		SfSample& SetLoop(std::uint32_t start, std::uint32_t end);
 		SfSample& SetRootKey(std::uint8_t root_key);
 		SfSample& SetPitchCorrection(std::int8_t value);
-		SfSample& SetLink(std::optional<SfHandle> smpl);
+		SfSample& SetLink(std::optional<SmplHandle> smpl);
 		SfSample& SetSampleMode(SFSampleLink mode);
 
-		SfHandle GetHandle() const { return self_handle; }
+		SmplHandle GetHandle() const { return self_handle; }
 
 		std::string GetName() const;
 		const std::vector<BYTE>& GetData() const;
@@ -44,11 +44,11 @@ namespace sflib {
 		auto GetLoop() const -> std::pair<std::uint32_t, std::uint32_t>;
 		uint8_t GetRootKey() const;
 		int8_t GetPitchCorrection() const;
-		std::optional<SfHandle> GetLink() const;
+		std::optional<SmplHandle> GetLink() const;
 		SFSampleLink GetSampleMode() const;
 		SampleBitDepth GetBitDepth() const;
 	private:
-		SfHandle self_handle;
+		SmplHandle self_handle;
 
 		char sample_name[21] {};
 		std::vector<BYTE> wav_data {};
@@ -57,7 +57,7 @@ namespace sflib {
 		DWORD end_loop = 0;
 		WORD root_key = 60;
 		SHORT pitch_correction = 0;
-		SfHandle linked_sample = 0;
+		SmplHandle linked_sample { 0 };
 		SFSampleLink sample_type = monoSample;
 		SampleBitDepth sample_bit_depth = SampleBitDepth::Signed16;
 	
