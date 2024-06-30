@@ -1,38 +1,41 @@
-#pragma once
+#ifndef SF2ML_SFPRESETZONE_HPP_
+#define SF2ML_SFPRESETZONE_HPP_
 
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
+#include "sfgenerator.hpp"
+
 #include <cstdint>
 #include <optional>
-#include <bitset>
-#include <array>
-#include <cassert>
+#include <memory>
 
-namespace sflib {
-	class InstrumentManager;
-
+namespace SF2ML {
 	class SfPresetZone {
-		friend class SoundFontImpl;
-		PZoneHandle self_handle;
 	public:
-		SfPresetZone(PZoneHandle handle) : self_handle(handle) {}; // new zone
+		SfPresetZone(PZoneHandle handle);
+		~SfPresetZone();
+		SfPresetZone(const SfPresetZone&) = delete;
+		SfPresetZone(SfPresetZone&&) noexcept;
+		SfPresetZone& operator=(const SfPresetZone&) = delete;
+		SfPresetZone& operator=(SfPresetZone&&) noexcept;
 
-		PZoneHandle GetHandle() const { return self_handle; }
-
+		// gets the Handle of itself
+		PZoneHandle GetHandle() const;
+		// calculates required size for serializing
 		DWORD RequiredSize() const;
+		
+		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfPresetZone&;
+		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
-		bool IsEmpty() const noexcept { return active_gens.count() == 0; }
-		DWORD GeneratorCount() const noexcept { return active_gens.count(); }
-		bool HasGenerator(SFGenerator type) const {
-			assert(static_cast<WORD>(type) < SfGenEndOper);
-			return active_gens[static_cast<WORD>(type)];
-		}
-		bool HasModulator(SFModulator type) const { return false; }
+		bool IsEmpty() const noexcept;
+		DWORD GeneratorCount() const noexcept;
+		bool HasGenerator(SFGenerator type) const;
+		bool HasModulator(SFModulator type) const;
 
+		// copies properties(generators/modulators) from zone
 		SfPresetZone& CopyProperties(const SfPresetZone& zone);
+		// moves properties(generators/modulators) from zone
 		SfPresetZone& MoveProperties(SfPresetZone&& zone);
-
-		SflibError SerializeGenerators(BYTE* dst, BYTE** end, const InstrumentManager& inst_manager) const;
 
 		// @return degree, in cents, to which a full scale excursion of Modulation LFO will influence pitch
 		auto GetModLfoToPitch() const -> std::int16_t;
@@ -193,8 +196,8 @@ namespace sflib {
 
 	private:
 		// Modulators are currently not defined...
-		std::bitset<SfGenEndOper> active_gens {};
-		std::array<spec::GenAmountType, SfGenEndOper> generators;
-		std::optional<InstHandle> instrument;
+		std::unique_ptr<class SfPresetZoneImpl> pimpl;
 	};
 }
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SF2ML_SFHANDLEINTERFACE_HPP_
+#define SF2ML_SFHANDLEINTERFACE_HPP_
 
 #include <vector>
 #include <map>
@@ -11,7 +12,7 @@
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
 
-namespace sflib {
+namespace SF2ML {
 
 	template <typename T>
 	concept SfHandle = std::totally_ordered<T>
@@ -22,19 +23,20 @@ namespace sflib {
 					|| std::same_as<T, PZoneHandle>);
 
 	template <typename T, typename HandleType>
-	concept HasHandleCtor = requires (T x, HandleType handle) {
-		{T(handle).GetHandle()} -> std::same_as<HandleType>;
+	concept DataTypeRequirements = requires (T x, HandleType handle) {
+		{x.GetHandle()} -> std::same_as<HandleType>;
 	};
 
 	template <typename DataType, typename HandleT>
-	requires SfHandle<HandleT> && HasHandleCtor<DataType, HandleT>
+	requires SfHandle<HandleT> && DataTypeRequirements<DataType, HandleT>
 	class SfHandleInterface {
 	public:
 		/** @brief creates new item with corresponding new handle
 		 *  @throw throws std::length_error when item can no longer be created
 		 *  @return reference to the newly created object
 		*/
-		DataType& NewItem() {
+		template <typename... Args>
+		DataType& NewItem(Args&&... args) {
 			if (data.size() >= std::numeric_limits<decltype(HandleT::value)>::max()) {
 				throw std::length_error("Cannot create more items!");
 			}
@@ -45,7 +47,7 @@ namespace sflib {
 
 			HandleT handle(next_key++);
 			interface.emplace(handle, static_cast<DWORD>(this->data.size()));
-			data.emplace_back(handle);
+			data.emplace_back(handle, std::forward<Args>(args)...);
 			handles.push_back(handle);
 			return data.back();
 		}
@@ -151,5 +153,6 @@ namespace sflib {
 		std::vector<DataType> data;
 		std::vector<HandleT> handles;
 	};
-
 }
+
+#endif

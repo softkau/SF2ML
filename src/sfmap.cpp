@@ -1,6 +1,6 @@
 #include "sfmap.hpp"
 
-namespace sflib {
+namespace SF2ML {
 	/** @brief reads the head of sub-chunk at parent_ck_data[offset]. offset is then updated to the end of the sub-chunk.
 	 * @param offset chunk offset to read (the value gets updated to the end of the sub-chunk after the call)
 	 * @param ck gets set to the head of the sub-chunk (the value is undefined state when function fails)
@@ -9,26 +9,26 @@ namespace sflib {
 	 * @return non-zero value when failed (possible causes: incomplete chunk head, violation of 16-bit alignment,
 	 * sub-chunk size exceeding the parent_ck_size). zero when success.
 	*/
-	SflibError ReadChunkHead(DWORD& offset, ChunkHead* ck_ptr, const BYTE* parent_ck_data, DWORD parent_ck_size) {
+	SF2MLError ReadChunkHead(DWORD& offset, ChunkHead* ck_ptr, const BYTE* parent_ck_data, DWORD parent_ck_size) {
 		if (offset + sizeof(ChunkHead) > parent_ck_size) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		std::memcpy(ck_ptr, parent_ck_data + offset, sizeof(ChunkHead));
 		if (offset + sizeof(ChunkHead) + ck_ptr->ck_size > parent_ck_size || ck_ptr->ck_size % 2 != 0) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		offset += sizeof(ChunkHead) + ck_ptr->ck_size;
-		return SFLIB_SUCCESS;
+		return SF2ML_SUCCESS;
 	}
 
-	SflibError MapInfo(SfbkMap::Info& dst, const BYTE* info_ck_data, DWORD info_ck_size) {
+	SF2MLError MapInfo(SfbkMap::Info& dst, const BYTE* info_ck_data, DWORD info_ck_size) {
 		DWORD fourcc;
 		if (info_ck_size < sizeof(fourcc)) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		memcpy(&fourcc, info_ck_data, sizeof(fourcc));
 		if (!CheckFOURCC(fourcc, "INFO")) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 
 		DWORD offset = sizeof(fourcc);
@@ -64,18 +64,18 @@ namespace sflib {
 			}
 		}
 
-		return SFLIB_SUCCESS;
+		return SF2ML_SUCCESS;
 	}
 
 	// maps stda chunk data and its sub-chunks (data is not copied)
-	SflibError MapSdta(SfbkMap::Sdta& dst,const BYTE* sdta_ck_data, DWORD sdta_ck_size) {
+	SF2MLError MapSdta(SfbkMap::Sdta& dst,const BYTE* sdta_ck_data, DWORD sdta_ck_size) {
 		DWORD fourcc;
 		if (sdta_ck_size < sizeof(fourcc)) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		memcpy(&fourcc, sdta_ck_data, sizeof(fourcc));
 		if (!CheckFOURCC(fourcc, "sdta")) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 
 		DWORD offset = sizeof(fourcc);
@@ -93,18 +93,18 @@ namespace sflib {
 			}
 		}
 
-		return SFLIB_SUCCESS;
+		return SF2ML_SUCCESS;
 	}
 
 	// maps pdta chunk data and its sub-chunks (data is not copied)
-	SflibError MapPdta(SfbkMap::Pdta& dst, const BYTE* pdta_ck_data, DWORD pdta_ck_size) {
+	SF2MLError MapPdta(SfbkMap::Pdta& dst, const BYTE* pdta_ck_data, DWORD pdta_ck_size) {
 		DWORD fourcc;
 		if (pdta_ck_size < sizeof(fourcc)) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		memcpy(&fourcc, pdta_ck_data, sizeof(fourcc));
 		if (!CheckFOURCC(fourcc, "pdta")) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 
 		DWORD offset = sizeof(fourcc);
@@ -136,23 +136,23 @@ namespace sflib {
 			}
 		}
 
-		return SFLIB_SUCCESS;
+		return SF2ML_SUCCESS;
 	}
 
 	// maps all chunks from sfbk chunk
-	SflibError GetSfbkMap(SfbkMap& dst, const BYTE* riff_ck_data, DWORD riff_ck_size) {
+	SF2MLError GetSfbkMap(SfbkMap& dst, const BYTE* riff_ck_data, DWORD riff_ck_size) {
 		memset(&dst, 0, sizeof(SfbkMap));
 
 		DWORD fourcc;
 		if (riff_ck_size < sizeof(fourcc)) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 		memcpy(&fourcc, riff_ck_data, sizeof(fourcc));
 		if (!CheckFOURCC(fourcc, "sfbk")) {
-			return SFLIB_FAILED;
+			return SF2ML_FAILED;
 		}
 
-		SflibError err;
+		SF2MLError err;
 		DWORD offset = sizeof(fourcc);
 		ChunkHead ck;
 
@@ -177,6 +177,6 @@ namespace sflib {
 		err = MapPdta(dst.pdta, riff_ck_data + pdta_off + 8, ck.ck_size);
 		if (err) { return err; }
 
-		return SFLIB_SUCCESS;
+		return SF2ML_SUCCESS;
 	}
 }

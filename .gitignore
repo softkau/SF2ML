@@ -1,13 +1,14 @@
 *.vscode
-Soundfont
 *.out
 *.d
-build/
-example/
-install/
 *.tmp
 *.bak
+build.*/
+install/
+example/build/
+example/test_src/
 
 # private stuff
 CMakeLists.txt.bak
 testdoc.txt
+install_sf2ml.sh

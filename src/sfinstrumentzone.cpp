@@ -1,52 +1,68 @@
-#include <sfml/sfinstrumentzone.hpp>
-#include "sample_manager.hpp"
+#include <sfinstrumentzone.hpp>
+#include <sfgenerator.hpp>
+
 #include <cmath>
 #include <climits>
+#include <cassert>
+#include <utility>
+#include <bitset>
+#include <array>
 
-using namespace sflib;
+using namespace SF2ML;
 
-static inline double AbsoluteCentToHertz(SHORT cent) {
-	return cent == 13500 ? 20000.0 : std::pow(2, cent/1200.0) * 8.176;
+namespace SF2ML {
+	class SfInstrumentZoneImpl {
+		friend SfInstrumentZone;
+		IZoneHandle self_handle;
+		std::bitset<SfGenEndOper> active_gens {};
+		std::array<SfGenAmount, SfGenEndOper> generators;
+	public:
+		SfInstrumentZoneImpl(IZoneHandle handle) : self_handle{handle} {}
+	};
 }
 
-static inline SHORT HertzToAbsoluteCent(double hz) {
-	if (hz <= 0.0) {
-		return 0;
-	}
-
-	int32_t cent = std::round(std::log2(hz/8.176) * 1200.0);
-	if (cent < 0) {
-		return 0;
-	} else if (cent > 13500) {
-		return 13500;
-	} else {
-		return cent;
-	}
+SfInstrumentZone::SfInstrumentZone(IZoneHandle handle) {
+	pimpl = std::make_unique<SfInstrumentZoneImpl>(handle);
 }
 
-static inline double TimeCentToSeconds(SHORT cent) {
-	return cent == -32768 ? 0.0 : std::pow(2, cent/1200.0);
+SfInstrumentZone::~SfInstrumentZone() {
+
 }
 
-static inline SHORT SecondsToTimeCent(double secs) {
-	if (secs > 0.0) {
-		int32_t res = std::round(std::log2(secs) * 1200.0);
-		if (res > std::numeric_limits<SHORT>::max()) {
-			return std::numeric_limits<SHORT>::max();
-		} else if (res < std::numeric_limits<SHORT>::min()) {
-			return std::numeric_limits<SHORT>::min();
-		} else {
-			return static_cast<SHORT>(res);
-		}
-	} else {
-		return std::numeric_limits<SHORT>::min();
-	}
+SfInstrumentZone::SfInstrumentZone(SfInstrumentZone&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
+}
+
+SfInstrumentZone& SfInstrumentZone::operator=(SfInstrumentZone&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
+	return *this;
+}
+
+IZoneHandle SfInstrumentZone::GetHandle() const {
+	return pimpl->self_handle;
+}
+
+bool SfInstrumentZone::IsEmpty() const noexcept {
+	return pimpl->active_gens.count() == 0;
+}
+
+DWORD SfInstrumentZone::GeneratorCount() const noexcept {
+	return pimpl->active_gens.count();
+}
+
+bool SfInstrumentZone::HasGenerator(SFGenerator type) const {
+	assert(static_cast<WORD>(type) < SfGenEndOper);
+	return pimpl->active_gens[static_cast<WORD>(type)];
+}
+
+bool SfInstrumentZone::HasModulator(SFModulator type) const {
+	return false;
 }
 
 #define IZONE_S16_PLAIN_GETTER_IMPL(GeneratorType, DefaultBits) \
 	auto SfInstrumentZone::Get##GeneratorType() const -> std::int16_t { \
 		if (HasGenerator(SfGen##GeneratorType)) { \
-			return generators[SfGen##GeneratorType].sh_amount; \
+			return std::get<SHORT>(pimpl->generators[SfGen##GeneratorType]); \
 		} else { \
 			return DefaultBits; \
 		} \
@@ -55,7 +71,7 @@ static inline SHORT SecondsToTimeCent(double secs) {
 #define IZONE_TIME_CENT_GETTER_IMPL(GeneratorType, DefaultBits) \
 	auto SfInstrumentZone::Get##GeneratorType() const -> double { \
 		if (HasGenerator(SfGen##GeneratorType)) { \
-			return TimeCentToSeconds(generators[SfGen##GeneratorType].sh_amount); \
+			return TimeCentToSeconds(std::get<SHORT>(pimpl->generators[SfGen##GeneratorType])); \
 		} else { \
 			return TimeCentToSeconds(DefaultBits); \
 		} \
@@ -64,7 +80,7 @@ static inline SHORT SecondsToTimeCent(double secs) {
 #define IZONE_ABSL_CENT_GETTER_IMPL(GeneratorType, DefaultBits) \
 	auto SfInstrumentZone::Get##GeneratorType() const -> double { \
 		if (HasGenerator(SfGen##GeneratorType)) { \
-			return AbsoluteCentToHertz(generators[SfGen##GeneratorType].sh_amount); \
+			return AbsoluteCentToHertz(std::get<SHORT>(pimpl->generators[SfGen##GeneratorType])); \
 		} else { \
 			return AbsoluteCentToHertz(DefaultBits); \
 		} \
@@ -73,10 +89,7 @@ static inline SHORT SecondsToTimeCent(double secs) {
 #define IZONE_RANGE_GETTER_IMPL(GeneratorType) \
 	auto SfInstrumentZone::Get##GeneratorType() const -> Ranges<std::uint8_t> { \
 		if (HasGenerator(SfGen##GeneratorType)) { \
-			return Ranges<std::uint8_t> { \
-				.start = generators[SfGen##GeneratorType].ranges.by_lo, \
-				.end   = generators[SfGen##GeneratorType].ranges.by_hi \
-			}; \
+			return std::get<Ranges<BYTE>>(pimpl->generators[SfGen##GeneratorType]); \
 		} else { \
 			return { 0, 127 }; \
 		} \
@@ -85,10 +98,10 @@ static inline SHORT SecondsToTimeCent(double secs) {
 #define IZONE_S16_PLAIN_SETTER_IMPL(GeneratorType) \
 	auto SfInstrumentZone::Set##GeneratorType(std::optional<std::int16_t> x) -> SfInstrumentZone& { \
 		if (x.has_value()) { \
-			generators[SfGen##GeneratorType].sh_amount = x.value(); \
-			active_gens.set(SfGen##GeneratorType); \
+			pimpl->generators[SfGen##GeneratorType] = x.value(); \
+			pimpl->active_gens.set(SfGen##GeneratorType); \
 		} else { \
-			active_gens.reset(SfGen##GeneratorType); \
+			pimpl->active_gens.reset(SfGen##GeneratorType); \
 		} \
 		return *this; \
 	}
@@ -102,10 +115,10 @@ static inline SHORT SecondsToTimeCent(double secs) {
 			} else if (cent > (MaxVal)) { \
 				cent = (MaxVal); \
 			} \
-			generators[SfGen##GeneratorType].sh_amount = cent; \
-			active_gens.set(SfGen##GeneratorType); \
+			pimpl->generators[SfGen##GeneratorType] = cent; \
+			pimpl->active_gens.set(SfGen##GeneratorType); \
 		} else { \
-			active_gens.reset(SfGen##GeneratorType); \
+			pimpl->active_gens.reset(SfGen##GeneratorType); \
 		} \
 		return *this; \
 	}
@@ -119,10 +132,10 @@ static inline SHORT SecondsToTimeCent(double secs) {
 			} else if (cent > (MaxVal)) { \
 				cent = (MaxVal); \
 			} \
-			generators[SfGen##GeneratorType].sh_amount = cent; \
-			active_gens.set(SfGen##GeneratorType); \
+			pimpl->generators[SfGen##GeneratorType] = cent; \
+			pimpl->active_gens.set(SfGen##GeneratorType); \
 		} else { \
-			active_gens.reset(SfGen##GeneratorType); \
+			pimpl->active_gens.reset(SfGen##GeneratorType); \
 		} \
 		return *this; \
 	}
@@ -130,11 +143,11 @@ static inline SHORT SecondsToTimeCent(double secs) {
 #define IZONE_RANGE_SETTER_IMPL(GeneratorType) \
 	auto SfInstrumentZone::Set##GeneratorType(std::optional<Ranges<std::uint8_t>> x) -> SfInstrumentZone& { \
 		if (x.has_value()) { \
-			generators[SfGen##GeneratorType].ranges.by_lo = x->start; \
-			generators[SfGen##GeneratorType].ranges.by_hi = x->end; \
-			active_gens.set(SfGen##GeneratorType); \
+			Ranges<BYTE> ranges { x->start, x->end }; \
+			pimpl->generators[SfGen##GeneratorType] = ranges; \
+			pimpl->active_gens.set(SfGen##GeneratorType); \
 		} else { \
-			active_gens.reset(SfGen##GeneratorType); \
+			pimpl->active_gens.reset(SfGen##GeneratorType); \
 		} \
 		return *this; \
 	}
@@ -242,12 +255,13 @@ IZONE_S16_PLAIN_SETTER_IMPL(ExclusiveClass)
 IZONE_S16_PLAIN_SETTER_IMPL(OverridingRootKey)
 
 auto SfInstrumentZone::GetSampleHandle() const -> std::optional<SmplHandle> {
-	return sample;
+	return std::get<SmplHandle>(pimpl->generators[SfGenSampleID]);
 }
 
 auto SfInstrumentZone::GetSampleModes() const -> LoopMode {
 	if (HasGenerator(SfGenSampleModes)) {
-		switch (generators[SfGenSampleModes].w_amount) {
+		WORD mode = std::get<WORD>(pimpl->generators[SfGenSampleModes]);
+		switch (mode) {
 			case 0: return LoopMode::NoLoop;
 			case 1: case 2: return LoopMode::Loop;
 			case 3: return LoopMode::LoopWithRemainder;
@@ -258,99 +272,63 @@ auto SfInstrumentZone::GetSampleModes() const -> LoopMode {
 	}
 }
 
-auto SfInstrumentZone::SetSampleHandle(std::optional<SmplHandle> x) -> SfInstrumentZone& {
+auto SfInstrumentZone::SetSample(std::optional<SmplHandle> x) -> SfInstrumentZone& {
 	if (x.has_value()) {
-		sample = x;
-		active_gens.set(SfGenSampleID);
+		pimpl->active_gens.set(SfGenSampleID);
+		pimpl->generators[SfGenSampleID] = x.value();
 	} else {
-		active_gens.reset(SfGenSampleID);
+		pimpl->active_gens.reset(SfGenSampleID);
 	}
 	return *this;
 }
 
 auto SfInstrumentZone::SetSampleModes(std::optional<LoopMode> x) -> SfInstrumentZone& {
 	if (x.has_value()) {
-		active_gens.set(SfGenSampleModes);
+		pimpl->active_gens.set(SfGenSampleModes);
 		switch (x.value()) {
 			case LoopMode::NoLoop:
-				generators[SfGenSampleModes].w_amount = 0;
+				pimpl->generators[SfGenSampleModes] = WORD(0);
 				break;
 			case LoopMode::Loop:
-				generators[SfGenSampleModes].w_amount = 1;
+				pimpl->generators[SfGenSampleModes] = WORD(1);
 				break;
 			case LoopMode::LoopWithRemainder:
-				generators[SfGenSampleModes].w_amount = 3;
+				pimpl->generators[SfGenSampleModes] = WORD(3);
 				break;
 		}
 	} else {
-		active_gens.reset(SfGenSampleModes);
+		pimpl->active_gens.reset(SfGenSampleModes);
 	}
 	return *this;
 }
 
 DWORD SfInstrumentZone::RequiredSize() const {
-	return active_gens.count() * sizeof(spec::SfInstGenList);
+	return pimpl->active_gens.count() * sizeof(spec::SfInstGenList);
+}
+
+auto SfInstrumentZone::SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone& {
+	if (amt.has_value()) {
+		pimpl->active_gens.set(type);
+		pimpl->generators[type] = amt.value();
+	} else {
+		pimpl->active_gens.reset(type);
+	}
+	return *this;
+}
+
+auto SfInstrumentZone::GetGenerator(SFGenerator type) const -> SfGenAmount {
+	return pimpl->generators[type];
 }
 
 SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone)
 {
-	active_gens = zone.active_gens;
-	generators  = zone.generators;
-	sample      = zone.sample;
+	pimpl->active_gens = zone.pimpl->active_gens;
+	pimpl->generators  = zone.pimpl->generators;
 	return *this;
 }
 
 SfInstrumentZone& SfInstrumentZone::MoveProperties(SfInstrumentZone&& zone) {
-	active_gens = std::forward<decltype(active_gens)>(zone.active_gens);
-	generators  = std::forward<decltype(generators)>(zone.generators);
-	sample      = zone.sample;
+	pimpl->active_gens = std::move(zone.pimpl->active_gens);
+	pimpl->generators  = std::move(zone.pimpl->generators);
 	return *this;
-}
-
-SflibError SfInstrumentZone::SerializeGenerators(BYTE* dst, BYTE** end, const SampleManager& sample_manager) const {
-	BYTE* pos = dst;
-	DWORD gen_count = 0;
-	const auto append_generator = [&pos, &gen_count](SFGenerator type, spec::GenAmountType amt) {
-		spec::SfInstGenList bits;
-		bits.sf_gen_oper = type;
-		bits.gen_amount = amt;
-		std::memcpy(pos, &bits, sizeof(bits));
-		pos += sizeof(bits);
-		gen_count++;
-	};
-
-	if (active_gens[SfGenKeyRange]) {
-		append_generator(SfGenKeyRange, generators[SfGenKeyRange]);
-	}
-	if (active_gens[SfGenVelRange]) {
-		append_generator(SfGenVelRange, generators[SfGenVelRange]);
-	}
-	for (WORD gen_type = 0; gen_type < SfGenEndOper; gen_type++) {
-		if (   gen_type == SfGenKeyRange
-			|| gen_type == SfGenVelRange
-			|| gen_type == SfGenSampleID
-			|| !active_gens[gen_type]
-		) {
-			continue;
-		}
-		append_generator(static_cast<SFGenerator>(gen_type), generators[gen_type]);
-	}
-	if (active_gens[SfGenSampleID]) {
-		spec::GenAmountType tmp;
-		auto sample_id = sample_manager.GetSampleID(sample.value());
-		if (sample_id.has_value() == false) {
-			if (end) {
-				*end = pos;
-			}
-			return SFLIB_NO_SUCH_SAMPLE;
-		}
-		tmp.w_amount = static_cast<WORD>(sample_id.value());
-		append_generator(SfGenSampleID, tmp);
-	}
-
-	if (end) {
-		*end = pos;
-	}
-
-	return SFLIB_SUCCESS;
 }

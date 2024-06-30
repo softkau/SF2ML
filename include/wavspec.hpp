@@ -1,16 +1,14 @@
-#pragma once
+#ifndef SF2ML_WAVSPEC_HPP_
+#define SF2ML_WAVSPEC_HPP_
 
+#include "sftypes.hpp"
 #include <cstdint>
+#include <cstddef>
 
-namespace sflib {
-	using BYTE  =  uint8_t;
-	using WORD  = uint16_t;
-	using DWORD = uint32_t;
-	using QWORD = uint64_t;
-	using CHAR  =   int8_t;
-	using SHORT =  int16_t;
-
-	using FOURCC = DWORD;
+namespace SF2ML {
+	enum class SampleBitDepth {
+		Signed16, Signed24
+	};
 
 	namespace wav {
 		enum AudioFormat : WORD {
@@ -34,5 +32,18 @@ namespace sflib {
 			WORD block_align;
 			WORD bits_per_sample;
 		} __attribute__((packed));
+
+		struct WavInfo {
+			wav::NumOfChannels num_of_channels;
+			uint32_t sample_rate;
+			SampleBitDepth bit_depth;
+			uint16_t block_align;
+			const uint8_t* wav_data;
+			uint32_t wav_size;
+		};
+
+		SF2MLResult<WavInfo> ValidateWav(const void* data, std::size_t size);
 	}
 }
+
+#endif

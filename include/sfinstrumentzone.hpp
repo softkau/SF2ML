@@ -1,42 +1,41 @@
-#pragma once
+#ifndef SF2ML_SFINSTRUMENTZONE_HPP_
+#define SF2ML_SFINSTRUMENTZONE_HPP_
 
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
+#include "sfgenerator.hpp"
+
 #include <cstdint>
 #include <optional>
-#include <bitset>
-#include <array>
-#include <cassert>
+#include <memory>
 
-namespace sflib {
-	class SampleManager;
-	
+namespace SF2ML {
 	enum class LoopMode {
 		NoLoop, Loop, LoopWithRemainder
 	};
 
 	class SfInstrumentZone {
-		friend class SoundFontImpl;
-		IZoneHandle self_handle;
 	public:
-		SfInstrumentZone(IZoneHandle handle) : self_handle(handle) {}; // new zone
+		SfInstrumentZone(IZoneHandle handle);
+		~SfInstrumentZone();
+		SfInstrumentZone(const SfInstrumentZone&) = delete;
+		SfInstrumentZone(SfInstrumentZone&&) noexcept;
+		SfInstrumentZone& operator=(const SfInstrumentZone&) = delete;
+		SfInstrumentZone& operator=(SfInstrumentZone&&) noexcept;
 
-		IZoneHandle GetHandle() const { return self_handle; }
-
+		IZoneHandle GetHandle() const;
 		DWORD RequiredSize() const;
 
-		bool IsEmpty() const noexcept { return active_gens.count() == 0; }
-		DWORD GeneratorCount() const noexcept { return active_gens.count(); }
-		bool HasGenerator(SFGenerator type) const {
-			assert(static_cast<WORD>(type) < SfGenEndOper);
-			return active_gens[static_cast<WORD>(type)];
-		}
-		bool HasModulator(SFModulator type) const { return false; }
+		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
+		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
+
+		bool IsEmpty() const noexcept;
+		DWORD GeneratorCount() const noexcept;
+		bool HasGenerator(SFGenerator type) const;
+		bool HasModulator(SFModulator type) const;
 
 		SfInstrumentZone& CopyProperties(const SfInstrumentZone& zone);
 		SfInstrumentZone& MoveProperties(SfInstrumentZone&& zone);
-
-		SflibError SerializeGenerators(BYTE* dst, BYTE** end, const SampleManager& sample_manager) const;
 
 		// @return degree, in cents, to which a full scale excursion of Modulation LFO will influence pitch
 		auto GetModLfoToPitch() const -> std::int16_t;
@@ -242,7 +241,7 @@ namespace sflib {
 		// @param x overriden MIDI velocity value
 		auto SetVelocity(std::optional<std::int16_t> x) -> SfInstrumentZone&;
 		// @param x handle of sample to which the zone is linked
-		auto SetSampleHandle(std::optional<SmplHandle> x) -> SfInstrumentZone&;
+		auto SetSample(std::optional<SmplHandle> x) -> SfInstrumentZone&;
 		// @param x loop mode with which the zone plays the sample
 		auto SetSampleModes(std::optional<LoopMode> x) -> SfInstrumentZone&;
 		// @param x exclusive class id; only one instrument can be played for one exclusive class(excpet zero class) (scope: its presetl)
@@ -252,8 +251,8 @@ namespace sflib {
 
 	private:
 		// Modulators are currently not defined...
-		std::bitset<SfGenEndOper> active_gens {};
-		std::array<spec::GenAmountType, SfGenEndOper> generators;
-		std::optional<SmplHandle> sample;
+		std::unique_ptr<class SfInstrumentZoneImpl> pimpl;
 	};
 }
+
+#endif

@@ -1,105 +1,181 @@
-#include <sfml/sfinfo.hpp>
+#include <sfinfo.hpp>
+#include <type_traits>
 #include <cassert>
+#include <optional>
+#include <string>
 
-using namespace sflib;
+using namespace SF2ML;
 
-DWORD SfInfo::InfoSize() const {
-	return sizeof(ChunkHead) + sizeof(FOURCC)
-		+ sizeof(ChunkHead) + sizeof(spec::SfVersionTag)
-		+ sizeof(ChunkHead) + target_sound_engine.length() + 1
-		+ sizeof(ChunkHead) + sf_bank_name.length() + 1
-		+ (sound_rom_name ? sizeof(ChunkHead) + sound_rom_name->length() + 1 : 0)
-		+ (sound_rom_version ? sizeof(ChunkHead) + sizeof(spec::SfVersionTag) : 0)
-		+ ( creation_date ? sizeof(ChunkHead) + creation_date->length() + 1 : 0)
-		+ (        author ? sizeof(ChunkHead) + author->length() + 1 : 0)
-		+ (target_product ? sizeof(ChunkHead) + target_product->length() + 1 : 0)
-		+ ( copyright_msg ? sizeof(ChunkHead) + copyright_msg->length() + 1 : 0)
-		+ (      comments ? sizeof(ChunkHead) + comments->length() + 1 : 0)
-		+ (      sf_tools ? sizeof(ChunkHead) + sf_tools->length() + 1 : 0);
-}
+namespace SF2ML {
+	class SfInfoImpl {
+		VersionTag sf_version;
+		std::string target_sound_engine;
+		std::string sf_bank_name;
+		std::optional<std::string> sound_rom_name;
+		std::optional<VersionTag> sound_rom_version;
+		std::optional<std::string> creation_date;
+		std::optional<std::string> author;
+		std::optional<std::string> target_product;
+		std::optional<std::string> copyright_msg;
+		std::optional<std::string> comments;
+		std::optional<std::string> sf_tools;
 
-SflibError SfInfo::Serialize(BYTE* dst, BYTE** end) {
-	BYTE* pos = dst;
-
-	std::memcpy(pos, "LIST", 4);
-	BYTE* const size_ptr = pos + 4;
-	std::memcpy(pos + 8, "INFO", 4);	
-	pos += 12;
-
-	auto serialize_zstr = [&pos](const char* fourcc, const std::string& name) {
-		std::memcpy(pos, fourcc, 4);
-		pos += 4;
-		DWORD len = name.length() + 1; // std::min<std::size_t>(name.length(), 255);
-		std::memcpy(pos, &len, sizeof(DWORD));
-		pos += 4;
-		std::memcpy(pos, name.c_str(), len-1);
-		pos += len-1;
-		*pos = 0;
-		pos++;
+		friend SfInfo;
 	};
-	auto serialize_vtag = [&pos](const char* fourcc, const VersionTag& vtag) {
-		std::memcpy(pos, fourcc, 4);
-		const DWORD sz = sizeof(spec::SfVersionTag);
-		std::memcpy(pos + 4, &sz, sizeof(DWORD));
-		pos += 8;
-		spec::SfVersionTag res {
-			.w_major = vtag.major,
-			.w_minor = vtag.minor
-		};
-		std::memcpy(pos, &res, sizeof(res));
-		pos += sizeof(res);
-	};
-
-	serialize_vtag("ifil", sf_version);
-	serialize_zstr("isng", target_sound_engine);
-	serialize_zstr("INAM", sf_bank_name);
-	if (sound_rom_name) {
-		serialize_zstr("irom", *sound_rom_name);
-	}
-	if (sound_rom_version) {
-		serialize_vtag("iver", *sound_rom_version);
-	}
-	if (creation_date) {
-		serialize_zstr("ICRD", *creation_date);
-	}
-	if (author) {
-		serialize_zstr("IENG", *author);
-	}
-	if (target_product) {
-		serialize_zstr("IPRD", *target_product);
-	}
-	if (copyright_msg) {
-		serialize_zstr("ICOP", *copyright_msg);
-	}
-	if (comments) {
-		serialize_zstr("ICMT", *comments);
-	}
-	if (sf_tools) {
-		serialize_zstr("ISFT", *sf_tools);
-	}
-
-	DWORD size = pos - dst - sizeof(ChunkHead);
-	assert(size + 8 == this->InfoSize());
-	std::memcpy(size_ptr, &size, sizeof(size));
-
-	if (end) {
-		*end = pos;
-	}
-	return SFLIB_SUCCESS;
 }
 
-SfInfo& SfInfo::SetSoundFontVersion(std::uint16_t major, std::uint16_t minor) {
-	sf_version.major = major;
-	sf_version.minor = minor;
+namespace {
+	std::uint16_t GetHash(std::string_view sv) {
+		std::uint64_t h64 = std::hash<std::string_view>{}(sv);
+		std::uint16_t h16 = (h64 & 0xFFFF)
+						  ^ ((h64 >> 16) & 0xFFFF)
+						  ^ ((h64 >> 32) & 0xFFFF)
+						  ^ ((h64 >> 48) & 0xFFFF);
+		return h16;
+	}
+
+	void SetStr255(std::string& dst, std::string_view sv) {
+		constexpr std::size_t LIMIT = 255;
+		const char* hex = "0123456789abcdef";
+
+		if (sv.length() > LIMIT) {
+			std::uint16_t h16 = GetHash(sv.substr(LIMIT - 4));
+			char ah16[5] = {};
+			ah16[0] = hex[(h16 >> 12) & 0xf];
+			ah16[1] = hex[(h16 >>  8) & 0xf];
+			ah16[2] = hex[(h16 >>  4) & 0xf];
+			ah16[3] = hex[(h16 >>  0) & 0xf];
+
+			dst = sv.substr(0, LIMIT - 4);
+			dst.append(ah16);
+		} else {
+			dst = sv;
+		}
+	}
+
+	void SetStr255(std::optional<std::string>& dst, std::optional<std::string_view> sv) {
+		if (sv) {
+			dst = "";
+			SetStr255(*dst, *sv);
+		} else {
+			dst = std::nullopt;
+		}
+	}
+}
+
+SfInfo::SfInfo() {
+	pimpl = std::make_unique<SfInfoImpl>();
+}
+
+SfInfo::~SfInfo() {
+	
+}
+
+SfInfo::SfInfo(SfInfo&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
+}
+
+SfInfo& SfInfo::operator=(SfInfo&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
 	return *this;
 }
 
-SfInfo& SfInfo::SetSoundEngine(const std::string& sound_engine_name) {
-	this->target_sound_engine = sound_engine_name;
+SfInfo& SfInfo::SetSoundFontVersion(VersionTag sf_version) {
+	pimpl->sf_version = sf_version;
 	return *this;
 }
 
-SfInfo& SfInfo::SetBankName(const std::string& bank_name) {
-	this->sf_bank_name = bank_name;
+SfInfo& SfInfo::SetSoundEngine(std::string_view sound_engine_name) {
+	SetStr255(pimpl->target_sound_engine, sound_engine_name);
+	pimpl->target_sound_engine = sound_engine_name;
 	return *this;
+}
+
+SfInfo& SfInfo::SetBankName(std::string_view bank_name) {
+	SetStr255(pimpl->sf_bank_name, bank_name);
+	return *this;
+}
+
+SfInfo& SfInfo::SetSoundRomName(std::optional<std::string_view> rom_name) {
+	SetStr255(pimpl->sound_rom_name, rom_name);
+	return *this;
+}
+
+SfInfo& SfInfo::SetSoundRomVersion(std::optional<VersionTag> rom_version) {
+	pimpl->sound_rom_version = rom_version;
+	return *this;
+}
+
+SfInfo& SfInfo::SetCreationDate(std::optional<std::string_view> date) {
+	SetStr255(pimpl->creation_date, date);
+	return *this;
+}
+
+SfInfo& SfInfo::SetAuthor(std::optional<std::string_view> author) {
+	SetStr255(pimpl->author, author);
+	return *this;
+}
+
+SfInfo& SfInfo::SetTargetProduct(std::optional<std::string_view> target_product) {
+	SetStr255(pimpl->target_product, target_product);
+	return *this;
+}
+
+SfInfo& SfInfo::SetCopyrightMessage(std::optional<std::string_view> message) {
+	SetStr255(pimpl->copyright_msg, message);
+	return *this;
+}
+
+SfInfo& SfInfo::SetComments(std::optional<std::string_view> comments) {
+	SetStr255(pimpl->comments, comments);
+	return *this;
+}
+
+SfInfo& SfInfo::SetToolUsed(std::optional<std::string_view> sf_tools) {
+	SetStr255(pimpl->sf_tools, sf_tools);
+	return *this;
+}
+
+auto SfInfo::GetSoundFontVersion() const -> VersionTag {
+	return pimpl->sf_version;
+}
+
+auto SfInfo::GetSoundEngine() const -> std::string {
+	return pimpl->target_sound_engine;
+}
+
+auto SfInfo::GetBankName() const -> std::string {
+	return pimpl->sf_bank_name;
+}
+
+auto SfInfo::GetSoundRomName() const -> std::optional<std::string> {
+	return pimpl->sound_rom_name;
+}
+
+auto SfInfo::GetSoundRomVersion() const -> std::optional<VersionTag> {
+	return pimpl->sound_rom_version;
+}
+
+auto SfInfo::GetCreationDate() const -> std::optional<std::string> {
+	return pimpl->creation_date;
+}
+
+auto SfInfo::GetAuthor() const -> std::optional<std::string> {
+	return pimpl->author;
+}
+
+auto SfInfo::GetTargetProduct() const -> std::optional<std::string> {
+	return pimpl->target_product;
+}
+
+auto SfInfo::GetCopyrightMessage() const -> std::optional<std::string> {
+	return pimpl->copyright_msg;
+}
+
+auto SfInfo::GetComments() const -> std::optional<std::string> {
+	return pimpl->comments;
+}
+
+auto SfInfo::GetToolUsed() const -> std::optional<std::string> {
+	return pimpl->sf_tools;
 }

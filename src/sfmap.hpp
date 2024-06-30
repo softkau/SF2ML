@@ -1,8 +1,19 @@
-#pragma once
+#ifndef SF2ML_SFMAP_HPP_
+#define SF2ML_SFMAP_HPP_
 
-#include <sfml/sfspec.hpp>
+#include <sfspec.hpp>
 
-namespace sflib {
+namespace SF2ML {
+	inline bool CheckFOURCC(FOURCC fourcc, const char* str) {
+		char byte_fourcc[4];
+		std::memcpy(byte_fourcc, &fourcc, sizeof(byte_fourcc));
+
+		return byte_fourcc[0] == str[0] &&
+			   byte_fourcc[1] == str[1] &&
+			   byte_fourcc[2] == str[2] &&
+			   byte_fourcc[3] == str[3];
+	}
+
 	struct SfbkMap {
 		struct Info {
 			const BYTE* ifil; // the version of the Sound Font RIFF file ; e.g. 2.01
@@ -34,5 +45,7 @@ namespace sflib {
 		} pdta;
 	};
 
-	SflibError GetSfbkMap(SfbkMap& dst, const BYTE* riff_ck_data, DWORD riff_ck_size);
+	SF2MLError GetSfbkMap(SfbkMap& dst, const BYTE* riff_ck_data, DWORD riff_ck_size);
 }
+
+#endif

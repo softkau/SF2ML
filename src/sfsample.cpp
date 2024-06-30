@@ -1,29 +1,66 @@
-#include <sfml/sfsample.hpp>
+#include <sfsample.hpp>
 
-using namespace sflib;
+#include <cassert>
 
-SfSample& SfSample::SetName(std::string_view name) {
-	std::memset(sample_name, 0, 21);
-	std::memcpy(sample_name, &name[0], std::min<std::size_t>(name.length(), 20));
+using namespace SF2ML;
+
+namespace SF2ML {
+	class SfSampleImpl {
+		friend SfSample;
+
+		const SmplHandle self_handle;
+		const SampleBitDepth sample_bit_depth;
+
+		char sample_name[21] {};
+		std::vector<BYTE> wav_data {};
+		DWORD sample_rate = 0;
+		DWORD start_loop = 0;
+		DWORD end_loop = 0;
+		BYTE root_key = 60;
+		CHAR pitch_correction = 0;
+		SmplHandle linked_sample { 0 };
+		SFSampleLink sample_type = monoSample;
+	public:
+		SfSampleImpl(SmplHandle handle, SampleBitDepth bit_depth)
+			: self_handle{handle}, sample_bit_depth{bit_depth} {}
+	};
+}
+
+SfSample::SfSample(SmplHandle handle, SampleBitDepth bit_depth) {
+	pimpl = std::make_unique<SfSampleImpl>(handle, bit_depth);
+}
+
+SfSample::~SfSample() {
+
+}
+
+SfSample::SfSample(SfSample&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
+}
+
+SfSample& SfSample::operator=(SfSample&& rhs) noexcept {
+	this->pimpl = std::move(rhs.pimpl);
 	return *this;
 }
 
-SfSample& sflib::SfSample::SetLoop(std::uint32_t start, std::uint32_t end) {
-	DWORD bytes_per_smpl = sample_bit_depth == SampleBitDepth::Signed16 ? 2 : 3;
-	start = std::min<DWORD>(start, wav_data.size() / bytes_per_smpl);
-	end = std::min<DWORD>(start, wav_data.size() / bytes_per_smpl);
-	this->start_loop = start;
-	this->end_loop = end;
+SfSample& SfSample::SetName(std::string_view name) {
+	std::memcpy(pimpl->sample_name, &name[0], std::min<std::size_t>(name.length(), 20));
+	return *this;
+}
+
+SfSample& SF2ML::SfSample::SetLoop(std::uint32_t start, std::uint32_t end) {
+	pimpl->start_loop = start;
+	pimpl->end_loop = end;
 	return *this;
 }
 
 SfSample& SfSample::SetRootKey(std::uint8_t root_key) {
-	this->root_key = std::min<BYTE>(root_key, 127);
+	pimpl->root_key = std::min<BYTE>(root_key, 127);
 	return *this;
 }
 
 SfSample& SfSample::SetPitchCorrection(std::int8_t value) {
-	this->pitch_correction = value;
+	pimpl->pitch_correction = value;
 	return *this;
 }
 
@@ -31,85 +68,109 @@ SfSample& SfSample::SetLink(std::optional<SmplHandle> smpl) {
 	constexpr auto RomSampleFlag = RomLeftSample & RomRightSample;
 
 	if (smpl.has_value()) {
-		this->linked_sample = smpl.value();
-		if (this->sample_type & RomSampleFlag) {
-			this->sample_type = RomLeftSample;
+		pimpl->linked_sample = smpl.value();
+		if (pimpl->sample_type & RomSampleFlag) {
+			pimpl->sample_type = RomLeftSample;
 		} else {
-			this->sample_type = leftSample;
+			pimpl->sample_type = leftSample;
 		}
 	} else {
-		this->linked_sample = SmplHandle{0};
-		if (this->sample_type & RomSampleFlag) {
-			this->sample_type = RomMonoSample;
+		pimpl->linked_sample = SmplHandle{0};
+		if (pimpl->sample_type & RomSampleFlag) {
+			pimpl->sample_type = RomMonoSample;
 		} else {
-			this->sample_type = monoSample;
+			pimpl->sample_type = monoSample;
 		}
 	}
 	return *this;
 }
 
 SfSample& SfSample::SetSampleMode(SFSampleLink mode) {
-	this->sample_type = mode;
+	pimpl->sample_type = mode;
 	if (mode == monoSample || mode == RomMonoSample) {
-		this->linked_sample = SmplHandle{0};
+		pimpl->linked_sample = SmplHandle{0};
 	}
 	return *this;
 }
 
+SfSample& SfSample::SetSampleRate(std::uint32_t smpl_rate) {
+	pimpl->sample_rate = smpl_rate;
+	return *this;
+}
+
+SfSample& SfSample::SetWav(std::vector<BYTE>&& wav) noexcept {
+	pimpl->wav_data = std::move(wav);
+	return *this;
+}
+
+SfSample& SfSample::SetWav(const std::vector<BYTE>& wav) {
+	pimpl->wav_data = wav;
+	return *this;
+}
+
+SmplHandle SfSample::GetHandle() const {
+	return pimpl->self_handle;
+}
+
 std::string SfSample::GetName() const {
-	return sample_name;
+	return pimpl->sample_name;
 }
 
-const std::vector<BYTE>& SfSample::GetData() const {
-	return wav_data;
+const std::vector<BYTE>& SfSample::GetWav() const {
+	return pimpl->wav_data;
 }
 
-int32_t sflib::SfSample::GetSampleAt(uint32_t pos) const {
+int32_t SfSample::GetSampleAt(uint32_t pos) const {
 	int32_t res = 0;
-	if (sample_bit_depth == SampleBitDepth::Signed16) {
-		std::memcpy(&res, &wav_data[pos * 2], 2);
+	if (pimpl->sample_bit_depth == SampleBitDepth::Signed16) {
+		std::memcpy(&res, &pimpl->wav_data[pos * 2], 2);
 	} else {
-		std::memcpy(&res, &wav_data[pos * 3], 3);
+		std::memcpy(&res, &pimpl->wav_data[pos * 3], 3);
 	}
 	return res;
 }
 
 std::size_t SfSample::GetSampleCount() const {
-	if (sample_bit_depth == SampleBitDepth::Signed16) {
-		return wav_data.size() / 2;
+	if (pimpl->sample_bit_depth == SampleBitDepth::Signed16) {
+		return pimpl->wav_data.size() / 2;
 	} else {
-		return wav_data.size() / 3;
+		return pimpl->wav_data.size() / 3;
 	}
 }
 
-int32_t sflib::SfSample::GetSampleRate() const {
-	return sample_rate;
+int32_t SfSample::GetSampleRate() const {
+	return pimpl->sample_rate;
 }
 
-auto sflib::SfSample::GetLoop() const -> std::pair<std::uint32_t, std::uint32_t> {
-	return { start_loop, end_loop };
+auto SfSample::GetLoop() const -> std::pair<std::uint32_t, std::uint32_t> {
+	return { pimpl->start_loop, pimpl->end_loop };
 }
 
-uint8_t sflib::SfSample::GetRootKey() const {
-	return root_key;
+uint8_t SfSample::GetRootKey() const {
+	return pimpl->root_key;
 }
 
-int8_t sflib::SfSample::GetPitchCorrection() const {
-	return pitch_correction;
+int8_t SfSample::GetPitchCorrection() const {
+	return pimpl->pitch_correction;
 }
 
-std::optional<SmplHandle> sflib::SfSample::GetLink() const {
-	if (sample_type & (leftSample | rightSample)) {
-		return linked_sample;
+std::optional<SmplHandle> SfSample::GetLink() const {
+	if (pimpl->sample_type & (leftSample | rightSample)) {
+		return pimpl->linked_sample;
 	} else {
 		return std::nullopt;
 	}
 }
 
-SFSampleLink sflib::SfSample::GetSampleMode() const {
-	return sample_type;
+SFSampleLink SfSample::GetSampleMode() const {
+	return pimpl->sample_type;
 }
 
-SampleBitDepth sflib::SfSample::GetBitDepth() const {
-	return sample_bit_depth;
+SampleBitDepth SfSample::GetBitDepth() const {
+	return pimpl->sample_bit_depth;
+}
+
+SF2MLError SfSample::Serialize(std::ofstream& ofs) const {
+	assert(false && "Not Implemented");
+	return SF2MLError();
 }

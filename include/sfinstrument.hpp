@@ -1,21 +1,36 @@
-#pragma once
+#ifndef SF2ML_SFINSTRUMENT_HPP_
+#define SF2ML_SFINSTRUMENT_HPP_
 
+#include "sfhandle.hpp"
 #include "sfinstrumentzone.hpp"
-#include "sfhandleinterface.hpp"
-#include <functional>
-#include <optional>
-#include <string>
 
-namespace sflib {
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <vector>
+#include <string>
+#include <string_view>
+
+namespace SF2ML {
 	class SfInstrument {
 	public:
 		SfInstrument(InstHandle handle);
+		~SfInstrument();
+		SfInstrument(const SfInstrument&) = delete;
+		SfInstrument(SfInstrument&&) noexcept;
+		SfInstrument& operator=(const SfInstrument&) = delete;
+		SfInstrument& operator=(SfInstrument&&) noexcept;
 
-		InstHandle GetHandle() const { return self_handle; }
-		std::string GetName() const { return inst_name; }
+		InstHandle GetHandle() const;
 		SfInstrumentZone& GetZone(IZoneHandle zone_handle);
 		SfInstrumentZone& GetGlobalZone();
 		SfInstrumentZone& NewZone();
+		std::uint32_t CountZones(bool count_empty=false) const;
+		auto AllZoneHandles() const -> std::vector<IZoneHandle>;
+
+		void ForEachZone(std::function<void(SfInstrumentZone&)> pred);
+		void ForEachZone(std::function<void(const SfInstrumentZone&)> pred) const;
 
 		void RemoveZone(IZoneHandle zone_handle);
 
@@ -25,14 +40,12 @@ namespace sflib {
 		auto FindZones(std::function<bool(const SfInstrumentZone&)> pred)
 		-> std::vector<IZoneHandle>;
 
-		SfInstrument& SetName(const std::string& x);
+		SfInstrument& SetName(std::string_view x);
+		std::string GetName() const;
 
 	private:
-		InstHandle self_handle;
-		char inst_name[21] {};
-		SfHandleInterface<SfInstrumentZone, IZoneHandle> zones;
-
-		friend class SoundFontImpl;
-		friend class InstrumentManager;
+		std::unique_ptr<class SfInstrumentImpl> pimpl;
 	};
 }
+
+#endif
