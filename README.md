@@ -1,6 +1,12 @@
 # SF2ML - SoundFont 2 Manipulation Library
 SF2ML is a C++ library for creating/editing Soundfont 2.
 Currently, the library is unstable, so use with caution.
+## Warnings
+Not all of the SoundFont2 specifications are implemented yet in SF2ML.
+List of features yet to be implemented:
+* Modulators (they're silently ignored when encountered, and the library will only create empty modulator chunks when serialized)
+* File structural error handling (The library assumes the sf2 file is structurally sound when loading)
+* and others that I've missed...
 ## How to compile SF2ML
 In order to compile the library, you'll need:  
 * [CMake](https://cmake.org/)
