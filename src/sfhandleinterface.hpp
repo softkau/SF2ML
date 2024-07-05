@@ -15,12 +15,7 @@
 namespace SF2ML {
 
 	template <typename T>
-	concept SfHandle = std::totally_ordered<T>
-					&& (std::same_as<T, SmplHandle>
-	                || std::same_as<T, InstHandle>
-					|| std::same_as<T, PresetHandle>
-					|| std::same_as<T, IZoneHandle>
-					|| std::same_as<T, PZoneHandle>);
+	concept SfHandle = std::totally_ordered<T>;
 
 	template <typename T, typename HandleType>
 	concept DataTypeRequirements = requires (T x, HandleType handle) {

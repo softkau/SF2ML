@@ -21,6 +21,8 @@ namespace SF2ML::loader {
 	SF2MLError LoadSamples(SmplContainer& smpls, const SfbkMap& sfbk);
 	SF2MLError LoadGenerators(SfPresetZone& dst, const BYTE* buf, DWORD count);
 	SF2MLError LoadGenerators(SfInstrumentZone& dst, const BYTE* buf, DWORD count);
+	SF2MLError LoadModulators(SfPresetZone& dst, const BYTE* buf, DWORD count);
+	SF2MLError LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD count);
 }
 
 #endif

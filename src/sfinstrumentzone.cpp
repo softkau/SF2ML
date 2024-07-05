@@ -14,8 +14,11 @@ namespace SF2ML {
 	class SfInstrumentZoneImpl {
 		friend SfInstrumentZone;
 		IZoneHandle self_handle;
+		// generators
 		std::bitset<SfGenEndOper> active_gens {};
 		std::array<SfGenAmount, SfGenEndOper> generators;
+		// modulators
+		
 	public:
 		SfInstrumentZoneImpl(IZoneHandle handle) : self_handle{handle} {}
 	};

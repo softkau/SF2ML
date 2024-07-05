@@ -1,5 +1,8 @@
 #include "sfloader.hpp"
 #include <sfgenerator.hpp>
+#include <tuple>
+#include <map>
+#include <set>
 
 namespace {
 	SF2ML::SfGenAmount InterpretGenerator(SF2ML::spec::SfGenList gen_entry) {
@@ -61,6 +64,56 @@ namespace {
 			}
 		}
 	}
+
+	namespace recursive {
+		std::set<SF2ML::WORD> active;
+		std::set<SF2ML::WORD> visited;
+		std::map<SF2ML::WORD, bool> illegal;
+		bool DFSModulators(SF2ML::WORD mod_ndx, const SF2ML::BYTE* buf, SF2ML::DWORD count) {
+			if (auto it = visited.find(mod_ndx); it != visited.end()) { // previously visited modulator
+				auto it2 = illegal.find(mod_ndx);
+				if (it2 == illegal.end()) { // cyclic link found
+					illegal.emplace(mod_ndx, true);
+					return true;
+				} else { // the modulator has already been finished testing
+					return it2->second;
+				}
+			}
+
+			visited.insert(mod_ndx);
+			SF2ML::spec::SfInstModList mod;
+			std::memcpy(&mod, buf + mod_ndx * sizeof(mod), sizeof(mod));
+
+			if (mod.sf_mod_dest_oper & 0x8000) { // link to another modulator
+				SF2ML::WORD link_ndx = mod.sf_mod_dest_oper & 0x7FFF;
+
+				if (link_ndx < count && active.find(link_ndx) != active.end()) { // in bounds link
+					bool r = DFSModulators(mod_ndx, buf, count);
+					illegal.emplace(mod_ndx, r);
+					return r;
+				} else { // out of bounds link
+					illegal.emplace(mod_ndx, true);
+					return true;
+				}
+			} else { // destination is generator (no cyclic link found)
+				illegal.emplace(mod_ndx, false);
+				return false;
+			}
+		}
+
+		void InitDFS(const std::map<std::tuple<SF2ML::SFModulator,
+											   SF2ML::SFGenerator,
+											   SF2ML::SFModulator>,
+					 SF2ML::WORD>& actives) {
+			visited.clear();
+			illegal.clear();
+			active.clear();
+			for (const auto& [mod_op, mod_ndx] : actives) {
+				active.insert(mod_ndx);
+			}
+		}
+	}
+	
 }
 
 auto SF2ML::loader::LoadSfbk(SfInfo& infos,
@@ -346,9 +399,42 @@ auto SF2ML::loader::LoadGenerators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 	for (size_t gen_ndx = 0; gen_ndx < count; gen_ndx++) {
 		const BYTE* gen_ptr = buf + gen_ndx * sizeof(spec::SfInstGenList);
 		spec::SfInstGenList gen;
-		std::memcpy(&gen , gen_ptr, sizeof(spec::SfInstGenList));
+		std::memcpy(&gen, gen_ptr, sizeof(spec::SfInstGenList));
 
 		dst.SetGenerator(gen.sf_gen_oper, InterpretGenerator(gen));
 	}
 	return SF2ML_SUCCESS;
+}
+
+auto SF2ML::loader::LoadModulators(SfPresetZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {
+	return SF2MLError();
+}
+
+auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {
+	// scan active modulators(not overridden modulators)
+	std::map<std::tuple<SFModulator, SFGenerator, SFModulator>, WORD> active;
+	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
+		const BYTE* mod_ptr = buf + mod_ndx * sizeof(spec::SfInstModList);
+		spec::SfInstModList mod;
+		std::memcpy(&mod, mod_ptr, sizeof(mod));
+
+		// ignore modulators with link in AmtSrcOper
+		if (mod.sf_mod_amt_src_oper == SfModCtrlLink) {
+			continue;
+		}
+		// ignore the preceding modulators if srcoper, destoper, amtsrcoper are the same
+		active[std::tuple(mod.sf_mod_src_oper, mod.sf_mod_dest_oper, mod.sf_mod_amt_src_oper)] = mod_ndx;
+	}
+
+	// add modulators (except circular links / bad links)
+	recursive::InitDFS(active);
+	for (const auto& [mod_op, mod_ndx] : active) {
+		bool illegal = recursive::DFSModulators(mod_ndx, buf, count);
+		if (illegal) {
+			continue;
+		}
+		
+	}
+
+	return SF2MLError();
 }

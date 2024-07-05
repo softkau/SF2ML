@@ -29,6 +29,8 @@ namespace SF2ML {
 		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
 		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
+		
+
 		bool IsEmpty() const noexcept;
 		DWORD GeneratorCount() const noexcept;
 		bool HasGenerator(SFGenerator type) const;

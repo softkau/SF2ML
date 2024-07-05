@@ -66,7 +66,40 @@ namespace SF2ML {
 	};
 	
 	using SFModulator = WORD;
-	using SFTransform = WORD;
+
+	struct SFModulatorBitField {
+		WORD type : 6; // a 6 bit value specifying the continuity of the controller
+		WORD p : 1; // polarity
+		WORD d : 1; // direction
+		WORD cc : 1; // MIDI Continous Controller Flag
+		WORD index : 7; // 7 bit value specifying controller source
+	} __attribute__((packed));
+	static_assert(sizeof(SFModulatorBitField) == sizeof(SFModulator));
+
+	enum class SfModSourceType : BYTE {
+		Linear = 0,
+		Concave = 1,
+		Convex = 2,
+		Switch = 3,
+	};
+
+	enum class GeneralController : BYTE {
+		None = 0,
+		NoteOnVelocity = 2,
+		NoteOnKeyNumber = 3,
+		PolyPressure = 10,
+		ChannelPressure = 13,
+		PitchWheel = 14,
+		PitchWheelSensitivity = 16,
+		Link = 127
+	};
+
+	using MidiController = BYTE;
+
+	enum SFTransform : WORD {
+		SfModLinearTransform = 0,
+		SfModAbsoluteValueTransform = 2,
+	};
 
 	enum SFSampleLink : WORD {
 		monoSample = 1,

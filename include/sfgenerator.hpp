@@ -2,6 +2,7 @@
 #define SF2ML_SFGENERATOR_HPP_
 
 #include "sfspec.hpp"
+#include "sfhandle.hpp"
 #include <variant>
 #include <cmath>
 
