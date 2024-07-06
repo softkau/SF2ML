@@ -108,7 +108,7 @@ namespace {
 
 					auto mod_bits = BitArrCast<spec::SfInstModList>(buf, cur_mod_idx);
 
-					if (mod_bits.sf_mod_dest_oper & 0x8000) { // destination is generator
+					if (!(mod_bits.sf_mod_dest_oper & 0x8000)) { // destination is generator
 						state_it->second = 1;
 						valid.emplace(cur_mod_idx, true);
 						return true;
@@ -463,9 +463,9 @@ auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 		);
 	}
 
-	// recursive::InitDFS(active_mod_idx);
+	recursive::InitDFS(active_mod_idx);
 	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
-		// if (recursive::DFSModulators(mod_ndx, buf)) {
+		if (recursive::DFSModulators(mod_ndx, buf)) {
 			auto mod = BitArrCast<spec::SfInstModList>(buf, mod_ndx);
 			
 			SfModulator& r = dst.NewModulatorWithKey(ModHandle(mod_ndx));
@@ -478,7 +478,7 @@ auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 				r.SetDestination(mod.sf_mod_dest_oper);
 			}
 			r.SetTransform(mod.sf_mod_trans_oper);
-		// }
+		}
 	}
 	
 	return SF2ML_SUCCESS;
