@@ -106,7 +106,7 @@ int test3(int argc, char** argv) {
 	//************MOAR advanced stuff!************
 
 	// loading/reading existing sf2 file from disk (the SoundFont object is resetted)
-	std::ifstream sf2_ifs(src_dir + "src.sf2", std::ios::binary);
+	std::ifstream sf2_ifs(src_dir + "FluidR3_GM.SF2", std::ios::binary);
 	if (sf2_ifs.is_open() == false) {
 		std::cout << "failed to open sound font file." << std::endl;
 		return 1;
@@ -131,7 +131,7 @@ int test3(int argc, char** argv) {
 
 	// this method returns a vector
 	auto search_rs2 = sf2.FindInstruments([](const SF2ML::SfInstrument& i) {
-		return i.CountZones() >= 3;
+		return i.GetName() == "Std Snare 1" || i.GetName() == "Std Snare 2" || i.GetName() == "Std Snare 3";
 	});
 	for (SF2ML::InstHandle ih : search_rs2) {
 		const SF2ML::SfInstrument& inst = sf2.GetInstrument(ih);
@@ -141,10 +141,37 @@ int test3(int argc, char** argv) {
 		// you can do "for-each" loop for zones (including global zones!)
 		inst.ForEachZone([&](const SF2ML::SfInstrumentZone& iz) {
 			std::cout << "  Zone(#" << zone_idx++ << "):\n";
-			std::cout << "    VolAtk: " << iz.GetAttackVolEnv()  << "sec(s)\n";
-			std::cout << "    VolDec: " << iz.GetDecayVolEnv()   << "sec(s)\n";
-			std::cout << "    VolSus: " << iz.GetSustainVolEnv() << "cB\n";
-			std::cout << "    VolRel: " << iz.GetReleaseVolEnv() << "sec(s)\n";
+			// std::cout << "    VolAtk: " << iz.GetAttackVolEnv()  << "sec(s)\n";
+			// std::cout << "    VolDec: " << iz.GetDecayVolEnv()   << "sec(s)\n";
+			// std::cout << "    VolSus: " << iz.GetSustainVolEnv() << "cB\n";
+			// std::cout << "    VolRel: " << iz.GetReleaseVolEnv() << "sec(s)\n";
+			
+			iz.ForEachModulators([](const SF2ML::SfModulator& m) {
+				auto print_cc = [](const auto&& cc) {
+					std::cout << SF2ML::StringifyController(cc) << "\n";
+				};
+				auto print_dst = [](const auto&& dst) {
+					using T = std::decay_t<decltype(dst)>;
+					if constexpr (std::is_same_v<T, SF2ML::SFGenerator>) {
+						std::cout << "Generator" << dst << "\n";
+					} else if constexpr (std::is_same_v<T, SF2ML::ModHandle>) {
+						std::cout << "Modulator" << dst.value << ")\n";
+					}
+				};
+
+				std::cout << "    MOD#" << m.GetHandle().value << "\n";
+				std::cout << "    __[src1]: ";
+				std::visit(print_cc, m.GetSourceController());
+				std::cout << "    ____P: " << (int)m.GetSourcePolarity() <<
+									" D: " << (int)m.GetSourceDirection() << "\n";
+				std::cout << "    __[src2]: ";
+				std::visit(print_cc, m.GetAmtSourceController());
+				std::cout << "    ____P: " << (int)m.GetAmtSourcePolarity() <<
+									" D: " << (int)m.GetAmtSourceDirection() << "\n";
+				std::cout << "    __[dest]: ";
+				std::visit(print_dst, m.GetDestination());
+				std::cout << "    __[trns]: " << m.GetTransform() << "\n";
+			});
 		});
 
 		std::cout << std::endl;

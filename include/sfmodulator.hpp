@@ -12,7 +12,13 @@ namespace SF2ML {
 		SfModulator(ModHandle handle);
 		~SfModulator();
 		ModHandle GetHandle() const;
+		SfModulator(const SfModulator&);
+		SfModulator(SfModulator&&) noexcept;
+		SfModulator& operator=(const SfModulator&);
+		SfModulator& operator=(SfModulator&&) noexcept;
 
+		auto SetSource(SFModulator bits) -> SfModulator&;
+		
 		auto SetSource(GeneralController controller,
 					   bool polarity,
 					   bool direction,
@@ -22,7 +28,9 @@ namespace SF2ML {
 					   bool polarity,
 					   bool direction,
 					   SfModSourceType shape) -> SfModulator&;
-									  
+		
+		auto SetAmtSource(SFModulator bits) -> SfModulator&;
+
 		auto SetAmtSource(GeneralController controller,
 						  bool polarity,
 						  bool direction,
@@ -43,8 +51,10 @@ namespace SF2ML {
 		auto GetAmtSourceController() const -> std::variant<GeneralController, MidiController>;
 		auto GetSourcePolarity() const -> bool;
 		auto GetSourceDirection() const -> bool;
+		auto GetSourceShape() const -> SfModSourceType;
 		auto GetAmtSourcePolarity() const -> bool;
 		auto GetAmtSourceDirection() const -> bool;
+		auto GetAmtSourceShape() const -> SfModSourceType;
 
 		auto GetTransform() const -> SFTransform;
 		auto GetDestination() const -> std::variant<SFGenerator, ModHandle>;

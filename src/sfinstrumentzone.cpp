@@ -8,6 +8,8 @@
 #include <bitset>
 #include <array>
 
+#include "sfhandleinterface.hpp"
+
 using namespace SF2ML;
 
 namespace SF2ML {
@@ -18,7 +20,7 @@ namespace SF2ML {
 		std::bitset<SfGenEndOper> active_gens {};
 		std::array<SfGenAmount, SfGenEndOper> generators;
 		// modulators
-		
+		SfHandleInterface<SfModulator, ModHandle> modulators;
 	public:
 		SfInstrumentZoneImpl(IZoneHandle handle) : self_handle{handle} {}
 	};
@@ -323,15 +325,40 @@ auto SfInstrumentZone::GetGenerator(SFGenerator type) const -> SfGenAmount {
 	return pimpl->generators[type];
 }
 
-SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone)
-{
+auto SfInstrumentZone::NewModulator() -> SfModulator& {
+	return pimpl->modulators.NewItem();
+}
+
+auto SF2ML::SfInstrumentZone::NewModulatorWithKey(ModHandle handle) -> SfModulator& {
+	return pimpl->modulators.NewItemWithKey(handle.value);
+}
+
+void SfInstrumentZone::RemoveModulator(ModHandle handle) {
+	pimpl->modulators.Remove(handle);
+}
+
+void SfInstrumentZone::ForEachModulators(std::function<void(SfModulator&)> pred) {
+	for (auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+void SfInstrumentZone::ForEachModulators(std::function<void(const SfModulator&)> pred) const {
+	for (const auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone) {
 	pimpl->active_gens = zone.pimpl->active_gens;
 	pimpl->generators  = zone.pimpl->generators;
+	pimpl->modulators  = zone.pimpl->modulators;
 	return *this;
 }
 
 SfInstrumentZone& SfInstrumentZone::MoveProperties(SfInstrumentZone&& zone) {
 	pimpl->active_gens = std::move(zone.pimpl->active_gens);
 	pimpl->generators  = std::move(zone.pimpl->generators);
+	pimpl->modulators  = std::move(zone.pimpl->modulators);
 	return *this;
 }

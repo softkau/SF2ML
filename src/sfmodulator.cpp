@@ -30,18 +30,40 @@ ModHandle SfModulator::GetHandle() const {
 	return pimpl->self_handle;
 }
 
+SfModulator::SfModulator(const SfModulator& rhs) {
+	pimpl = std::make_unique<SfModulatorImpl>(*rhs.pimpl);
+}
+
+SfModulator::SfModulator(SfModulator&& rhs) noexcept {
+	pimpl = std::move(rhs.pimpl);
+}
+
+SfModulator& SF2ML::SfModulator::operator=(const SfModulator& rhs) {
+	pimpl = std::make_unique<SfModulatorImpl>(*rhs.pimpl);
+	return *this;
+}
+
+SfModulator& SfModulator::operator=(SfModulator&& rhs) noexcept {
+	pimpl = std::move(rhs.pimpl);
+	return *this;
+}
+
+auto SfModulator::SetSource(SFModulator bits) -> SfModulator& {
+	pimpl->src = bits;
+	return *this;
+}
+
 auto SfModulator::SetSource(GeneralController controller,
 							bool polarity,
 							bool direction,
 							SfModSourceType shape) -> SfModulator& {
-	SFModulatorBitField bits;
-	bits.type = static_cast<BYTE>(shape);
-	bits.p = polarity;
-	bits.d = direction;
-	bits.cc = 0;
-	bits.index = static_cast<BYTE>(controller);
-	std::memcpy(&pimpl->src, &bits, sizeof(bits));
-
+	pimpl->src = 0;
+	pimpl->src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
+	pimpl->src |= 1 << 7; // cc
+	pimpl->src |= direction << 8; // d
+	pimpl->src |= polarity << 9; // p
+	pimpl->src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
+	
 	return *this;
 }
 
@@ -49,14 +71,18 @@ auto SfModulator::SetSource(MidiController controller,
 							bool polarity,
 							bool direction,
 							SfModSourceType shape) -> SfModulator& {
-	SFModulatorBitField bits;
-	bits.type = static_cast<BYTE>(shape);
-	bits.p = polarity;
-	bits.d = direction;
-	bits.cc = 1;
-	bits.index = controller;
-	std::memcpy(&pimpl->src, &bits, sizeof(bits));
+	pimpl->src = 0;
+	pimpl->src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
+	pimpl->src |= 0 << 7; // cc
+	pimpl->src |= direction << 8; // d
+	pimpl->src |= polarity << 9; // p
+	pimpl->src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
 	
+	return *this;
+}
+
+auto SfModulator::SetAmtSource(SFModulator bits) -> SfModulator& {
+	pimpl->amt_src = bits;
 	return *this;
 }
 
@@ -68,13 +94,12 @@ auto SfModulator::SetAmtSource(GeneralController controller,
 		return *this;
 	}
 
-	SFModulatorBitField bits;
-	bits.type = static_cast<BYTE>(shape);
-	bits.p = polarity;
-	bits.d = direction;
-	bits.cc = 0;
-	bits.index = static_cast<BYTE>(controller);
-	std::memcpy(&pimpl->amt_src, &bits, sizeof(bits));
+	pimpl->amt_src = 0;
+	pimpl->amt_src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
+	pimpl->amt_src |= 1 << 7; // cc
+	pimpl->amt_src |= direction << 8; // d
+	pimpl->amt_src |= polarity << 9; // p
+	pimpl->amt_src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
 
 	return *this;
 }
@@ -83,13 +108,12 @@ auto SfModulator::SetAmtSource(MidiController controller,
 							   bool polarity,
 							   bool direction,
 							   SfModSourceType shape) -> SfModulator& {
-	SFModulatorBitField bits;
-	bits.type = static_cast<BYTE>(shape);
-	bits.p = polarity;
-	bits.d = direction;
-	bits.cc = 1;
-	bits.index = controller;
-	std::memcpy(&pimpl->amt_src, &bits, sizeof(bits));
+	pimpl->amt_src = 0;
+	pimpl->amt_src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
+	pimpl->amt_src |= 0 << 7; // cc
+	pimpl->amt_src |= direction << 8; // d
+	pimpl->amt_src |= polarity << 9; // p
+	pimpl->amt_src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
 	
 	return *this;
 }
@@ -101,60 +125,52 @@ auto SfModulator::SetTransform(SFTransform transform) -> SfModulator& {
 
 auto SfModulator::SetDestination(SFGenerator dest) -> SfModulator& {
 	pimpl->dst = static_cast<SFGenerator>(dest & 0x7FFF);
+	return *this;
 }
 
 auto SfModulator::SetDestination(ModHandle dest) -> SfModulator& {
 	pimpl->dst = static_cast<SFGenerator>(dest.value | 0x8000);
+	return *this;
 }
 
 auto SfModulator::GetSourceController() const -> std::variant<GeneralController, MidiController> {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->src, sizeof(bits));
-
-	if (bits.cc) {
-		return static_cast<MidiController>(bits.index);
+	if (pimpl->src & 0x80) {
+		return static_cast<MidiController>(pimpl->src & 0x7F);
 	} else {
-		return static_cast<GeneralController>(bits.index);
+		return static_cast<GeneralController>(pimpl->src);
 	}
 }
 
 auto SfModulator::GetAmtSourceController() const -> std::variant<GeneralController, MidiController> {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->amt_src, sizeof(bits));
-
-	if (bits.cc) {
-		return static_cast<MidiController>(bits.index);
+	if (pimpl->amt_src & 0x80) {
+		return static_cast<MidiController>(pimpl->amt_src & 0x7F);
 	} else {
-		return static_cast<GeneralController>(bits.index);
+		return static_cast<GeneralController>(pimpl->amt_src);
 	}
 }
 
 auto SfModulator::GetSourcePolarity() const -> bool {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->src, sizeof(bits));
-
-	return bits.p;
+	return pimpl->src & 0x0200;
 }
 
 auto SfModulator::GetSourceDirection() const -> bool {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->src, sizeof(bits));
+	return pimpl->src & 0x0100;
+}
 
-	return bits.d;
+auto SfModulator::GetSourceShape() const -> SfModSourceType {
+	return static_cast<SfModSourceType>((pimpl->src >> 10) & 0b0011'1111);
 }
 
 auto SfModulator::GetAmtSourcePolarity() const -> bool {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->amt_src, sizeof(bits));
-
-	return bits.p;
+	return pimpl->amt_src & 0x0200;
 }
 
 auto SfModulator::GetAmtSourceDirection() const -> bool {
-	SFModulatorBitField bits;
-	std::memcpy(&bits, &pimpl->amt_src, sizeof(bits));
+	return pimpl->amt_src & 0x0100;
+}
 
-	return bits.d;
+auto SfModulator::GetAmtSourceShape() const -> SfModSourceType {
+	return static_cast<SfModSourceType>((pimpl->amt_src >> 10) & 0b0011'1111);
 }
 
 auto SfModulator::GetTransform() const -> SFTransform {

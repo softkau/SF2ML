@@ -2,9 +2,21 @@
 #include <sfgenerator.hpp>
 #include <tuple>
 #include <map>
+#include <stack>
+#include <bit>
 #include <set>
 
 namespace {
+	template <typename To>
+	inline To BitArrCast(const void* src, std::size_t idx=0) {
+		static_assert(std::is_trivially_constructible_v<To>);
+		To dst;
+		std::memcpy(&dst, reinterpret_cast<const char*>(src) + idx * sizeof(To), sizeof(To));
+		return dst;
+	}
+
+	using ModID = std::tuple<SF2ML::SFModulator, SF2ML::SFGenerator, SF2ML::SFModulator>;
+
 	SF2ML::SfGenAmount InterpretGenerator(SF2ML::spec::SfGenList gen_entry) {
 		using namespace SF2ML;
 		switch (gen_entry.sf_gen_oper) {
@@ -66,50 +78,67 @@ namespace {
 	}
 
 	namespace recursive {
-		std::set<SF2ML::WORD> active;
-		std::set<SF2ML::WORD> visited;
-		std::map<SF2ML::WORD, bool> illegal;
-		bool DFSModulators(SF2ML::WORD mod_ndx, const SF2ML::BYTE* buf, SF2ML::DWORD count) {
-			if (auto it = visited.find(mod_ndx); it != visited.end()) { // previously visited modulator
-				auto it2 = illegal.find(mod_ndx);
-				if (it2 == illegal.end()) { // cyclic link found
-					illegal.emplace(mod_ndx, true);
-					return true;
-				} else { // the modulator has already been finished testing
-					return it2->second;
+		std::map<SF2ML::WORD, char> state;
+		std::map<SF2ML::WORD, bool> valid;
+		std::set<SF2ML::WORD> in_range;
+
+		bool DFSModulators(SF2ML::WORD cur_mod_idx, const SF2ML::BYTE* buf) {
+			using namespace SF2ML;
+
+			auto state_it = state.find(cur_mod_idx);
+			if (state_it != state.end()) {
+				// the cur_mod_idx was visited before
+
+				if (state_it->second == 0) {
+					// the cur_mod_idx is under testing
+					// this means the modulator has a circular link
+					return false;
+				} else {
+					// the cur_mod_idx was already tested
+					return valid.at(cur_mod_idx);
 				}
-			}
+			} else {
+				// the cur_mod_idx was never visited before
 
-			visited.insert(mod_ndx);
-			SF2ML::spec::SfInstModList mod;
-			std::memcpy(&mod, buf + mod_ndx * sizeof(mod), sizeof(mod));
+				if (in_range.find(cur_mod_idx) == in_range.end()) {
+					// out of range
+					return false;
+				} else {
+					auto [state_it, b] = state.emplace(cur_mod_idx, 0); // cur_mod_idx is under testing
 
-			if (mod.sf_mod_dest_oper & 0x8000) { // link to another modulator
-				SF2ML::WORD link_ndx = mod.sf_mod_dest_oper & 0x7FFF;
+					auto mod_bits = BitArrCast<spec::SfInstModList>(buf, cur_mod_idx);
 
-				if (link_ndx < count && active.find(link_ndx) != active.end()) { // in bounds link
-					bool r = DFSModulators(mod_ndx, buf, count);
-					illegal.emplace(mod_ndx, r);
-					return r;
-				} else { // out of bounds link
-					illegal.emplace(mod_ndx, true);
-					return true;
+					if (mod_bits.sf_mod_dest_oper & 0x8000) { // destination is generator
+						state_it->second = 1;
+						valid.emplace(cur_mod_idx, true);
+						return true;
+					} else { // destination is another modulator
+						WORD next_mod_idx = mod_bits.sf_mod_dest_oper & 0x7FFF;
+						auto next_mod_bits = BitArrCast<spec::SfInstModList>(buf, next_mod_idx);
+						SFModulator next_mod_src = next_mod_bits.sf_mod_src_oper;
+
+						if ((next_mod_src & 0xFF) == static_cast<BYTE>(GeneralController::Link)) {
+							bool r = DFSModulators(mod_bits.sf_mod_dest_oper & 0x7FFF, buf);
+							state_it->second = 1;
+							valid.emplace(cur_mod_idx, r);
+							return r;
+						} else {
+							// BAD LINK
+							state_it->second = 1;
+							valid.emplace(cur_mod_idx, false);
+							return false;
+						}
+					}
 				}
-			} else { // destination is generator (no cyclic link found)
-				illegal.emplace(mod_ndx, false);
-				return false;
 			}
 		}
 
-		void InitDFS(const std::map<std::tuple<SF2ML::SFModulator,
-											   SF2ML::SFGenerator,
-											   SF2ML::SFModulator>,
-					 SF2ML::WORD>& actives) {
-			visited.clear();
-			illegal.clear();
-			active.clear();
+		void InitDFS(const std::map<ModID, SF2ML::WORD>& actives) {
+			state.clear();
+			valid.clear();
+			in_range.clear();
 			for (const auto& [mod_op, mod_ndx] : actives) {
-				active.insert(mod_ndx);
+				in_range.insert(mod_ndx);
 			}
 		}
 	}
@@ -286,16 +315,22 @@ auto SF2ML::loader::LoadInstruments(InstContainer& insts, const SfbkMap& sfbk) -
 				std::memcpy(&bag_cur, bag_ptr, sizeof(spec::SfInstBag));
 				std::memcpy(&bag_next, bag_ptr + sizeof(spec::SfInstBag), sizeof(spec::SfInstBag));
 
-				// IMOD is skipped rn...
+				const size_t mod_start = bag_cur.w_inst_mod_ndx;
+				const size_t mod_end = bag_next.w_inst_mod_ndx;
+
 				const size_t gen_start = bag_cur.w_inst_gen_ndx;
 				const size_t gen_end = bag_next.w_inst_gen_ndx;
 
+				const BYTE* mod_ptr = pdta.imod + 8 + mod_start * sizeof(spec::SfInstModList);
 				const BYTE* gen_ptr = pdta.igen + 8 + gen_start * sizeof(spec::SfInstGenList);
 				SfInstrumentZone zone(IZoneHandle(0));
+				if (auto err = LoadModulators(zone, mod_ptr, mod_end - mod_start)) {
+					return err;
+				}
 				if (auto err = LoadGenerators(zone, gen_ptr, gen_end - gen_start)) {
 					return err;
 				}
-
+				
 				if (!zone.IsEmpty()) {
 					if (bag_ndx == bag_start && !zone.HasGenerator(SfGenSampleID)) {
 						rec.GetGlobalZone().MoveProperties(std::move(zone));
@@ -407,34 +442,44 @@ auto SF2ML::loader::LoadGenerators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 }
 
 auto SF2ML::loader::LoadModulators(SfPresetZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {
-	return SF2MLError();
+	return SF2ML_FAILED;
 }
 
 auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {
-	// scan active modulators(not overridden modulators)
-	std::map<std::tuple<SFModulator, SFGenerator, SFModulator>, WORD> active;
+	std::map<ModID, WORD> active_mod_idx;
+
 	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
-		const BYTE* mod_ptr = buf + mod_ndx * sizeof(spec::SfInstModList);
-		spec::SfInstModList mod;
-		std::memcpy(&mod, mod_ptr, sizeof(mod));
-
-		// ignore modulators with link in AmtSrcOper
-		if (mod.sf_mod_amt_src_oper == SfModCtrlLink) {
+		auto mod = BitArrCast<spec::SfInstModList>(buf, mod_ndx);
+		SFModulator mod_amt_src = mod.sf_mod_amt_src_oper;
+		if ((mod_amt_src & 0xFF) == static_cast<BYTE>(GeneralController::Link)) {
 			continue;
 		}
-		// ignore the preceding modulators if srcoper, destoper, amtsrcoper are the same
-		active[std::tuple(mod.sf_mod_src_oper, mod.sf_mod_dest_oper, mod.sf_mod_amt_src_oper)] = mod_ndx;
+
+		active_mod_idx.insert_or_assign(
+			ModID(SFModulator(mod.sf_mod_src_oper),
+				  SFGenerator(mod.sf_mod_dest_oper),
+				  SFModulator(mod.sf_mod_amt_src_oper)),
+			static_cast<WORD>(mod_ndx)
+		);
 	}
 
-	// add modulators (except circular links / bad links)
-	recursive::InitDFS(active);
-	for (const auto& [mod_op, mod_ndx] : active) {
-		bool illegal = recursive::DFSModulators(mod_ndx, buf, count);
-		if (illegal) {
-			continue;
-		}
-		
-	}
+	// recursive::InitDFS(active_mod_idx);
+	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
+		// if (recursive::DFSModulators(mod_ndx, buf)) {
+			auto mod = BitArrCast<spec::SfInstModList>(buf, mod_ndx);
+			
+			SfModulator& r = dst.NewModulatorWithKey(ModHandle(mod_ndx));
+			r.SetSource(mod.sf_mod_src_oper);
+			r.SetAmtSource(mod.sf_mod_amt_src_oper);
 
-	return SF2MLError();
+			if (mod.sf_mod_dest_oper & 0x8000) {
+				r.SetDestination(ModHandle(mod.sf_mod_dest_oper & 0x7FFF));
+			} else {
+				r.SetDestination(mod.sf_mod_dest_oper);
+			}
+			r.SetTransform(mod.sf_mod_trans_oper);
+		// }
+	}
+	
+	return SF2ML_SUCCESS;
 }

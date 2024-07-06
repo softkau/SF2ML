@@ -4,10 +4,12 @@
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
 #include "sfgenerator.hpp"
+#include "sfmodulator.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <memory>
+#include <functional>
 
 namespace SF2ML {
 	enum class LoopMode {
@@ -29,7 +31,12 @@ namespace SF2ML {
 		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
 		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
-		
+		auto NewModulator() -> SfModulator&;
+		auto NewModulatorWithKey(ModHandle handle) -> SfModulator&;
+		void RemoveModulator(ModHandle handle);
+
+		void ForEachModulators(std::function<void(SfModulator&)> pred);
+		void ForEachModulators(std::function<void(const SfModulator&)> pred) const;
 
 		bool IsEmpty() const noexcept;
 		DWORD GeneratorCount() const noexcept;
