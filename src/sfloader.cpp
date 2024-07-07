@@ -478,6 +478,7 @@ auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 				r.SetDestination(mod.sf_mod_dest_oper);
 			}
 			r.SetTransform(mod.sf_mod_trans_oper);
+			r.SetModAmount(mod.mod_amount);
 		}
 	}
 	

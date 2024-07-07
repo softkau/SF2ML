@@ -55,7 +55,7 @@ SF2ML::DWORD CalculateInstSize(const SF2ML::InstContainer& insts) {
 	using namespace SF2ML;
 	DWORD inst_ck_size = sizeof(ChunkHead) + (insts.Count() + 1) * sizeof(spec::SfInst);
 	DWORD ibag_ck_size = sizeof(ChunkHead);
-	DWORD imod_ck_size = sizeof(ChunkHead) + sizeof(spec::SfInstModList); // no mod support
+	DWORD imod_ck_size = sizeof(ChunkHead);
 	DWORD igen_ck_size = sizeof(ChunkHead);
 
 	DWORD bag_count = 0;
@@ -63,13 +63,15 @@ SF2ML::DWORD CalculateInstSize(const SF2ML::InstContainer& insts) {
 		inst.ForEachZone([&](const SfInstrumentZone& zone) {
 			if (!zone.IsEmpty()) {
 				bag_count++;
-				igen_ck_size += zone.RequiredSize();
+				igen_ck_size += zone.GeneratorCount() * sizeof(spec::SfInstGenList);
+				imod_ck_size += zone.ModulatorCount() * sizeof(spec::SfInstModList);
 			}
 		});
 	}
 	
 	ibag_ck_size += (bag_count + 1) * sizeof(spec::SfInstBag);
 	igen_ck_size += sizeof(spec::SfInstGenList);
+	imod_ck_size += sizeof(spec::SfModList);
 
 	return inst_ck_size + ibag_ck_size + imod_ck_size + igen_ck_size;
 }
@@ -392,28 +394,49 @@ auto SF2ML::serializer::SerializeInstruments(BYTE* dst, BYTE** end,
 	std::memcpy(ibag_head + 4, &ibag_ck_size, sizeof(DWORD));
 	pos += 8;
 	WORD gen_idx = 0;
+	WORD mod_idx = 0;
 	for (const SfInstrument& inst : src) {
-		inst.ForEachZone([&pos, &gen_idx](const SfInstrumentZone& zone) {
+		inst.ForEachZone([&](const SfInstrumentZone& zone) {
 			if (!zone.IsEmpty()) {
 				spec::SfInstBag bits;
 				bits.w_inst_gen_ndx = gen_idx;
-				bits.w_inst_mod_ndx = 0;
+				bits.w_inst_mod_ndx = mod_idx;
 				std::memcpy(pos, &bits, sizeof(bits));
 				gen_idx += zone.GeneratorCount();
+				mod_idx += zone.ModulatorCount();
 				pos += sizeof(bits);
 			}
 		});
 	}
-	spec::SfInstBag end_of_ibag { gen_idx, 0 };
+	spec::SfInstBag end_of_ibag { gen_idx, mod_idx };
 	std::memcpy(pos, &end_of_ibag, sizeof(end_of_ibag));
 	pos += sizeof(end_of_ibag);
 
 	// serialize ./imod
 	BYTE* const imod_head = pos;
 	std::memcpy(imod_head, "imod", 4);
-	DWORD imod_ck_size = sizeof(spec::SfInstModList);
+	DWORD imod_ck_size = (mod_idx + 1) * sizeof(spec::SfInstModList);
 	std::memcpy(imod_head + 4, &imod_ck_size, sizeof(DWORD));
 	pos += 8;
+	for (const SfInstrument& inst : src) {
+		SF2MLError failed = SF2ML_SUCCESS;
+		inst.ForEachZone([&](const SfInstrumentZone& zone) {
+			BYTE* next = pos;
+			if (!failed && !zone.IsEmpty()) {
+				if (auto err = SerializeModulators(pos, &next, zone)) {
+					failed = err;
+					if (end) {
+						*end = next;
+					}
+					return;
+				}
+				pos = next;
+			}
+		});
+		if (failed) {
+			return failed;
+		}
+	}
 	spec::SfInstModList end_of_imod {};
 	std::memcpy(pos, &end_of_imod, sizeof(end_of_imod));
 	pos += sizeof(end_of_imod);
@@ -717,6 +740,85 @@ auto SF2ML::serializer::SerializeGenerators(BYTE* dst, BYTE** end,
 
 	if (end) {
 		*end = pos;
+	}
+
+	return SF2ML_SUCCESS;
+}
+
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+
+#if __cplusplus < 202002L
+template<class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+#endif
+
+namespace {
+	SF2ML::SFModulator CalcModSrcBits(SF2ML::GeneralController cc,
+									  bool polarity,
+									  bool direction,
+									  SF2ML::SfModSourceType shape) {
+
+		return static_cast<SF2ML::SFModulator>(cc)
+			| (0u << 7u)
+			| (direction << 8u)
+			| (polarity << 9u)
+			| (static_cast<SF2ML::SFModulator>(shape) << 10u);
+	}
+
+	SF2ML::SFModulator CalcModSrcBits(SF2ML::MidiController cc,
+									  bool polarity,
+									  bool direction,
+									  SF2ML::SfModSourceType shape) {
+
+		return static_cast<SF2ML::SFModulator>(cc)
+			| (1u << 7u)
+			| (direction << 8u)
+			| (polarity << 9u)
+			| (static_cast<SF2ML::SFModulator>(shape) << 10u);
+	}
+}
+
+auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
+											const SfPresetZone& src) -> SF2ML::SF2MLError {
+	return SF2ML_SUCCESS;
+}
+
+auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
+											const SfInstrumentZone& src) -> SF2ML::SF2MLError {
+
+	src.ForEachModulators([&](const SfModulator& mod) {
+		bool p1 = mod.GetSourcePolarity();
+		bool d1 = mod.GetSourceDirection();
+		auto s1 = mod.GetSourceShape();
+		bool p2 = mod.GetAmtSourcePolarity();
+		bool d2 = mod.GetAmtSourceDirection();
+		auto s2 = mod.GetAmtSourceShape();
+
+		spec::SfInstModList bits;
+		bits.mod_amount = mod.GetModAmount();
+		bits.sf_mod_trans_oper = mod.GetTransform();
+		bits.sf_mod_src_oper = std::visit(
+			[&](auto&& cc) { return CalcModSrcBits(cc, p1, d1, s1); },
+			mod.GetSourceController()
+		);
+		bits.sf_mod_amt_src_oper = std::visit(
+			[&](auto&& cc) { return CalcModSrcBits(cc, p2, d2, s2); },
+			mod.GetSourceController()
+		);
+
+		// TODO: handle when GetModID returns std::nullopt;
+		bits.sf_mod_dest_oper = std::visit(overloaded {
+			[&](SFGenerator x) { return x; },
+			[&](ModHandle   x) { return static_cast<SFGenerator>((1 << 15) | *src.GetModID(x)); }
+		}, mod.GetDestination());
+
+		std::memcpy(dst, &bits, sizeof(bits));
+		dst += sizeof(bits);
+	});
+
+	if (end) {
+		*end = dst;
 	}
 
 	return SF2ML_SUCCESS;

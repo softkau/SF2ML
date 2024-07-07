@@ -13,6 +13,7 @@ namespace SF2ML {
 
 		SFModulator src = 0;
 		SFModulator amt_src = 0;
+		SHORT mod_amt = 0;
 		SFTransform trans = SFTransform::SfModLinearTransform;
 		SFGenerator dst = static_cast<SFGenerator>(0);
 	};
@@ -133,6 +134,11 @@ auto SfModulator::SetDestination(ModHandle dest) -> SfModulator& {
 	return *this;
 }
 
+auto SfModulator::SetModAmount(std::int16_t amt) -> SfModulator& {
+	pimpl->mod_amt = amt;
+	return *this;
+}
+
 auto SfModulator::GetSourceController() const -> std::variant<GeneralController, MidiController> {
 	if (pimpl->src & 0x80) {
 		return static_cast<MidiController>(pimpl->src & 0x7F);
@@ -183,4 +189,8 @@ auto SfModulator::GetDestination() const -> std::variant<SFGenerator, ModHandle>
 	} else {
 		return pimpl->dst;
 	}
+}
+
+auto SfModulator::GetModAmount() const -> std::int16_t {
+	return pimpl->mod_amt;
 }

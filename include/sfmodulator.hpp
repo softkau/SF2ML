@@ -47,6 +47,8 @@ namespace SF2ML {
 		
 		auto SetDestination(ModHandle dest) -> SfModulator&;
 
+		auto SetModAmount(std::int16_t amt)-> SfModulator&;
+
 		auto GetSourceController() const -> std::variant<GeneralController, MidiController>;
 		auto GetAmtSourceController() const -> std::variant<GeneralController, MidiController>;
 		auto GetSourcePolarity() const -> bool;
@@ -58,6 +60,7 @@ namespace SF2ML {
 
 		auto GetTransform() const -> SFTransform;
 		auto GetDestination() const -> std::variant<SFGenerator, ModHandle>;
+		auto GetModAmount() const -> std::int16_t;
 	private:
 		std::unique_ptr<class SfModulatorImpl> pimpl;
 	};

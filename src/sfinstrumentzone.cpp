@@ -48,11 +48,19 @@ IZoneHandle SfInstrumentZone::GetHandle() const {
 }
 
 bool SfInstrumentZone::IsEmpty() const noexcept {
-	return pimpl->active_gens.count() == 0;
+	if (pimpl->self_handle.value == 0) {
+		return pimpl->active_gens.count() == 0 && pimpl->modulators.Count();
+	} else {
+		return pimpl->active_gens.count() == 0;
+	}
 }
 
 DWORD SfInstrumentZone::GeneratorCount() const noexcept {
 	return pimpl->active_gens.count();
+}
+
+DWORD SF2ML::SfInstrumentZone::ModulatorCount() const noexcept {
+	return pimpl->modulators.Count();
 }
 
 bool SfInstrumentZone::HasGenerator(SFGenerator type) const {
@@ -307,10 +315,6 @@ auto SfInstrumentZone::SetSampleModes(std::optional<LoopMode> x) -> SfInstrument
 	return *this;
 }
 
-DWORD SfInstrumentZone::RequiredSize() const {
-	return pimpl->active_gens.count() * sizeof(spec::SfInstGenList);
-}
-
 auto SfInstrumentZone::SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone& {
 	if (amt.has_value()) {
 		pimpl->active_gens.set(type);
@@ -347,6 +351,10 @@ void SfInstrumentZone::ForEachModulators(std::function<void(const SfModulator&)>
 	for (const auto& mod : pimpl->modulators) {
 		pred(mod);
 	}
+}
+
+auto SfInstrumentZone::GetModID(ModHandle handle) const -> std::optional<std::uint16_t> {
+	return pimpl->modulators.GetID(handle);
 }
 
 SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone) {

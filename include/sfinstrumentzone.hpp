@@ -26,7 +26,6 @@ namespace SF2ML {
 		SfInstrumentZone& operator=(SfInstrumentZone&&) noexcept;
 
 		IZoneHandle GetHandle() const;
-		DWORD RequiredSize() const;
 
 		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
 		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
@@ -37,9 +36,14 @@ namespace SF2ML {
 
 		void ForEachModulators(std::function<void(SfModulator&)> pred);
 		void ForEachModulators(std::function<void(const SfModulator&)> pred) const;
+		auto GetModID(ModHandle handle) const -> std::optional<std::uint16_t>;
 
+		/// @brief This method checks if the zone has no properties to be saved into file.
+		/// @retval (for non-global zones) true iff the zone has zero generators.
+		/// @retval (for global zones) true iff the zone has zero generators & modulators.
 		bool IsEmpty() const noexcept;
 		DWORD GeneratorCount() const noexcept;
+		DWORD ModulatorCount() const noexcept;
 		bool HasGenerator(SFGenerator type) const;
 		bool HasModulator(SFModulator type) const;
 
