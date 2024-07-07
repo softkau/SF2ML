@@ -69,11 +69,18 @@ SfSample& SfSample::SetLink(std::optional<SmplHandle> smpl) {
 
 	if (smpl.has_value()) {
 		pimpl->linked_sample = smpl.value();
+#if 0
+		// This code was to make sure the link is active
+		// after calling the method, however
+		// it turns out that it can cause some troubles sliently.
+		// thus, it was removed.
+
 		if (pimpl->sample_type & RomSampleFlag) {
 			pimpl->sample_type = RomLeftSample;
 		} else {
 			pimpl->sample_type = leftSample;
 		}
+#endif
 	} else {
 		pimpl->linked_sample = SmplHandle{0};
 		if (pimpl->sample_type & RomSampleFlag) {
