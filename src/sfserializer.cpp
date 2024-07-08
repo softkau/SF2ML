@@ -700,7 +700,7 @@ auto SF2ML::serializer::SerializeGenerators(BYTE* dst, BYTE** end,
 	if (src.HasGenerator(SfGenSampleID)) {
 		spec::SfInstGenList bits;
 		bits.sf_gen_oper = SfGenSampleID;
-		auto sample_id = smpl_info.GetID(*src.GetSampleHandle());
+		auto sample_id = smpl_info.GetID(*src.GetSample());
 		
 		// failing condition for serialization: the zone holds an invalidated instrument handle
 		// (which means the zone references a deleted instrument that once existed)

@@ -212,7 +212,7 @@ namespace SF2ML {
 		// @return overriden MIDI velocity value
 		auto GetVelocity() const -> std::int16_t;
 		// @return handle of sample to which the zone is linked
-		auto GetSampleHandle() const -> std::optional<SmplHandle>;
+		auto GetSample() const -> std::optional<SmplHandle>;
 		// @return loop mode with which the zone plays the sample
 		auto GetSampleModes() const -> LoopMode;
 		// @return exclusive class id; only one instrument can be played for one exclusive class(excpet zero class) (scope: its presetl)
