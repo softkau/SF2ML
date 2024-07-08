@@ -69,11 +69,16 @@ SfSample& SfSample::SetLink(std::optional<SmplHandle> smpl) {
 
 	if (smpl.has_value()) {
 		pimpl->linked_sample = smpl.value();
+#if 0
+		// The code is disabled due to causing bug in loader.
+		// The code might also cause some confusion,
+		// since it silently changes sample_type.
 		if (pimpl->sample_type & RomSampleFlag) {
 			pimpl->sample_type = RomLeftSample;
 		} else {
 			pimpl->sample_type = leftSample;
 		}
+#endif
 	} else {
 		pimpl->linked_sample = SmplHandle{0};
 		if (pimpl->sample_type & RomSampleFlag) {
