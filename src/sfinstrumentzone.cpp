@@ -255,7 +255,11 @@ IZONE_S16_PLAIN_SETTER_IMPL(ExclusiveClass)
 IZONE_S16_PLAIN_SETTER_IMPL(OverridingRootKey)
 
 auto SfInstrumentZone::GetSampleHandle() const -> std::optional<SmplHandle> {
-	return std::get<SmplHandle>(pimpl->generators[SfGenSampleID]);
+	if (HasGenerator(SfGenSampleID)) {
+		return std::get<SmplHandle>(pimpl->generators[SfGenSampleID]);
+	} else {
+		return std::nullopt;
+	}
 }
 
 auto SfInstrumentZone::GetSampleModes() const -> LoopMode {

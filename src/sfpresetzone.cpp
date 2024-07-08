@@ -228,7 +228,11 @@ PZONE_S16_PLAIN_SETTER_IMPL(FineTune)
 PZONE_S16_PLAIN_SETTER_IMPL(ScaleTuning)
 
 auto SfPresetZone::GetInstrument() const -> std::optional<InstHandle> {
-	return std::get<InstHandle>(pimpl->generators[SfGenInstrument]);
+	if (HasGenerator(SfGenInstrument)) {
+		return std::get<InstHandle>(pimpl->generators[SfGenInstrument]);
+	} else {
+		return std::nullopt;
+	}
 }
 
 auto SfPresetZone::SetInstrument(std::optional<InstHandle> x) -> SfPresetZone& {
