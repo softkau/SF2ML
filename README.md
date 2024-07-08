@@ -1,6 +1,8 @@
 # SF2ML - SoundFont 2 Manipulation Library
 SF2ML is a C++ library for creating/editing Soundfont 2.
-Currently, the library is unstable, so use with caution.
+Currently, the library is unstable, so use with caution.  
+(unstable in a sense that the library can change its API/ABI at any point,
+and break/crash sometimes for unknown reasons)
 ## Warnings
 Not all of the SoundFont2 specifications are implemented yet in SF2ML.
 List of features yet to be implemented:
