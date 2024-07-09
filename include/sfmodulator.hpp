@@ -64,6 +64,11 @@ namespace SF2ML {
 	private:
 		std::unique_ptr<class SfModulatorImpl> pimpl;
 	};
+
+	inline bool MatchController(const std::variant<GeneralController, MidiController>& x,
+								const std::variant<GeneralController, MidiController>& y) {
+		return x == y;
+	}
 }
 
 #endif

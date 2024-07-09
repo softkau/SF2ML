@@ -12,6 +12,11 @@
 
 std::string src_dir = "../sf2src/";
 
+inline bool MatchModDest(const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& x,
+                         const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& y) {
+    return x == y;
+}
+
 #define CheckSampleProperties(smpl,                           \
                               name,                           \
                               bit_depth,                      \
@@ -123,6 +128,29 @@ TEST_CASE("Load Instruments from file", "[loader]") {
     REQUIRE(kick_zone1.GetSample().has_value());
     auto kick_smpl_h = *kick_zone1.GetSample();
     CHECK(sf2.GetSample(kick_smpl_h).GetName() == "Kick 1");
+
+    auto kick_global_mod_h
+        = kick.GetGlobalZone().FindModulator(
+            [](const SF2ML::SfModulator& mod) {
+                return SF2ML::MatchController(
+                    mod.GetSourceController(),
+                    SF2ML::GeneralController::NoteOnVelocity
+                );
+            }
+        );
+
+    REQUIRE(kick_global_mod_h.has_value());
+    auto& kick_global_mod = kick.GetGlobalZone().GetModulator(*kick_global_mod_h);
+    CHECK(SF2ML::MatchController(kick_global_mod.GetAmtSourceController(), SF2ML::GeneralController::None));
+    CHECK(kick_global_mod.GetSourceShape() == SF2ML::SfModSourceType::Concave);
+    CHECK(kick_global_mod.GetSourcePolarity() == false);
+    CHECK(kick_global_mod.GetSourceDirection() == true);
+    CHECK(kick_global_mod.GetAmtSourceShape() == SF2ML::SfModSourceType::Linear);
+    CHECK(kick_global_mod.GetAmtSourcePolarity() == false);
+    CHECK(kick_global_mod.GetAmtSourceDirection() == false);
+    CHECK(MatchModDest(kick_global_mod.GetDestination(), SF2ML::SfGenInitialFilterFc));
+    CHECK(kick_global_mod.GetModAmount() == 4);
+    CHECK(kick_global_mod.GetTransform() == SF2ML::SfModLinearTransform);
 
     // checking Lead instrument
     auto lead_h = sf2.FindInstrument([](const auto& inst) {

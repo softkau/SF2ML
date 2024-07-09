@@ -345,6 +345,31 @@ void SfInstrumentZone::RemoveModulator(ModHandle handle) {
 	pimpl->modulators.Remove(handle);
 }
 
+auto SfInstrumentZone::GetModulator(ModHandle handle) -> SfModulator& {
+	return *pimpl->modulators.Get(handle);
+}
+
+auto SfInstrumentZone::FindModulator(std::function<bool(const SfModulator&)> pred) const
+-> std::optional<ModHandle> {
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			return mod.GetHandle();
+		}
+	}
+	return std::nullopt;
+}
+
+auto SfInstrumentZone::FindModulators(std::function<bool(const SfModulator&)> pred) const
+-> std::vector<ModHandle> {
+	std::vector<ModHandle> mods;
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			mods.push_back(mod.GetHandle());
+		}
+	}
+	return mods;
+}
+
 void SfInstrumentZone::ForEachModulators(std::function<void(SfModulator&)> pred) {
 	for (auto& mod : pimpl->modulators) {
 		pred(mod);

@@ -33,6 +33,9 @@ namespace SF2ML {
 		auto NewModulator() -> SfModulator&;
 		auto NewModulatorWithKey(ModHandle handle) -> SfModulator&;
 		void RemoveModulator(ModHandle handle);
+		auto GetModulator(ModHandle handle) -> SfModulator&;
+		auto FindModulator(std::function<bool(const SfModulator&)> pred) const -> std::optional<ModHandle>;
+		auto FindModulators(std::function<bool(const SfModulator&)> pred) const -> std::vector<ModHandle>;
 
 		void ForEachModulators(std::function<void(SfModulator&)> pred);
 		void ForEachModulators(std::function<void(const SfModulator&)> pred) const;
