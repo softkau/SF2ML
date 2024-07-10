@@ -285,8 +285,8 @@ TEST_CASE("Load Presets from file", "[loader]") {
     auto& kick = sf2.GetPreset(*kick_h);
     auto& lead = sf2.GetPreset(*lead_h);
 
-    CHECK(kick.CountZones() == 1);
-    CHECK(lead.CountZones() == 1);
+    CHECK(kick.CountZones(false) == 1);
+    CHECK(lead.CountZones(false) == 1);
 
     auto& kick_zone1 = kick.GetZone(kick.AllZoneHandles()[1]);
     auto& lead_zone1 = lead.GetZone(lead.AllZoneHandles()[1]);
@@ -298,4 +298,6 @@ TEST_CASE("Load Presets from file", "[loader]") {
 
     CHECK(sf2.GetInstrument(*kick_inst_h).GetName() == "Kick 1");
     CHECK(sf2.GetInstrument(*lead_inst_h).GetName() == "Lead");
+    CHECK(kick_zone1.ModulatorCount() == 0);
+    CHECK(lead_zone1.ModulatorCount() == 0);
 }

@@ -32,7 +32,7 @@ SF2ML::DWORD CalculatePresetSize(const SF2ML::PresetContainer& presets) {
 	using namespace SF2ML;
 	DWORD pdhr_ck_size = sizeof(ChunkHead) + (presets.Count() + 1) * sizeof(spec::SfPresetHeader);
 	DWORD pbag_ck_size = sizeof(ChunkHead);
-	DWORD pmod_ck_size = sizeof(ChunkHead) + sizeof(spec::SfModList); // no mod support
+	DWORD pmod_ck_size = sizeof(ChunkHead);
 	DWORD pgen_ck_size = sizeof(ChunkHead);
 
 	DWORD bag_count = 0;
@@ -40,13 +40,15 @@ SF2ML::DWORD CalculatePresetSize(const SF2ML::PresetContainer& presets) {
 		preset.ForEachZone([&](const SfPresetZone& zone) {
 			if (!zone.IsEmpty()) {
 				bag_count++;
-				pgen_ck_size += zone.RequiredSize();
+				pgen_ck_size += zone.GeneratorCount() * sizeof(spec::SfInstGenList);
+				pmod_ck_size += zone.ModulatorCount() * sizeof(spec::SfInstModList);
 			}
 		});
 	}
 	
 	pbag_ck_size += (bag_count + 1) * sizeof(spec::SfPresetBag);
 	pgen_ck_size += sizeof(spec::SfGenList);
+	pmod_ck_size += sizeof(spec::SfModList);
 
 	return pdhr_ck_size + pbag_ck_size + pmod_ck_size + pgen_ck_size;
 }
@@ -300,28 +302,49 @@ auto SF2ML::serializer::SerializePresets(BYTE* dst, BYTE** end,
 	std::memcpy(pbag_head + 4, &pbag_ck_size, sizeof(DWORD));
 	pos += 8;
 	WORD gen_idx = 0;
+	WORD mod_idx = 0;
 	for (const SfPreset& preset : src) {
-		preset.ForEachZone([&pos, &gen_idx](const SfPresetZone& zone) {
+		preset.ForEachZone([&](const SfPresetZone& zone) {
 			if (!zone.IsEmpty()) {
 				spec::SfPresetBag bits;
 				bits.w_gen_ndx = gen_idx;
-				bits.w_mod_ndx = 0;
+				bits.w_mod_ndx = mod_idx;
 				std::memcpy(pos, &bits, sizeof(bits));
 				gen_idx += zone.GeneratorCount();
+				mod_idx += zone.ModulatorCount();
 				pos += sizeof(bits);
 			}
 		});
 	}
-	spec::SfPresetBag end_of_pbag { gen_idx, 0 };
+	spec::SfPresetBag end_of_pbag { gen_idx, mod_idx };
 	std::memcpy(pos, &end_of_pbag, sizeof(end_of_pbag));
 	pos += sizeof(end_of_pbag);
 
 	// serialize ./pmod
 	BYTE* const pmod_head = pos;
 	std::memcpy(pmod_head, "pmod", 4);
-	DWORD pmod_ck_size = sizeof(spec::SfModList);
+	DWORD pmod_ck_size = (mod_idx + 1) * sizeof(spec::SfModList);
 	std::memcpy(pmod_head + 4, &pmod_ck_size, sizeof(DWORD));
 	pos += 8;
+	for (const SfPreset& inst : src) {
+		SF2MLError failed = SF2ML_SUCCESS;
+		inst.ForEachZone([&](const SfPresetZone& zone) {
+			BYTE* next = pos;
+			if (!failed && !zone.IsEmpty()) {
+				if (auto err = SerializeModulators(pos, &next, zone)) {
+					failed = err;
+					if (end) {
+						*end = next;
+					}
+					return;
+				}
+				pos = next;
+			}
+		});
+		if (failed) {
+			return failed;
+		}
+	}
 	spec::SfModList end_of_pmod {};
 	std::memcpy(pos, &end_of_pmod, sizeof(end_of_pmod));
 	pos += sizeof(end_of_pmod);
@@ -745,14 +768,6 @@ auto SF2ML::serializer::SerializeGenerators(BYTE* dst, BYTE** end,
 	return SF2ML_SUCCESS;
 }
 
-template<class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-
-#if __cplusplus < 202002L
-template<class... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
-#endif
-
 namespace {
 	SF2ML::SFModulator CalcModSrcBits(SF2ML::GeneralController cc,
 									  bool polarity,
@@ -781,13 +796,13 @@ namespace {
 
 auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 											const SfPresetZone& src) -> SF2ML::SF2MLError {
-	return SF2ML_SUCCESS;
-}
-
-auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
-											const SfInstrumentZone& src) -> SF2ML::SF2MLError {
-
+	
+	SF2MLError failure = SF2ML_SUCCESS;											
 	src.ForEachModulators([&](const SfModulator& mod) {
+		if (failure) {
+			return;
+		}
+
 		bool p1 = mod.GetSourcePolarity();
 		bool d1 = mod.GetSourceDirection();
 		auto s1 = mod.GetSourceShape();
@@ -807,11 +822,20 @@ auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 			mod.GetSourceController()
 		);
 
-		// TODO: handle when GetModID returns std::nullopt;
-		bits.sf_mod_dest_oper = std::visit(overloaded {
-			[&](SFGenerator x) { return x; },
-			[&](ModHandle   x) { return static_cast<SFGenerator>((1 << 15) | *src.GetModID(x)); }
-		}, mod.GetDestination());
+		auto mod_dest = mod.GetDestination();
+		if (std::holds_alternative<ModHandle>(mod_dest)) {
+			auto dst_idx = src.GetModIndex(std::get<ModHandle>(mod_dest));
+			if (!dst_idx) {
+				failure = SF2ML_NO_SUCH_MODULATORS;
+				return;
+			}
+
+			bits.sf_mod_dest_oper
+				= static_cast<SFGenerator>((1 << 15) | *dst_idx);
+		} else {
+			bits.sf_mod_dest_oper
+				= std::get<SFGenerator>(mod_dest);
+		}
 
 		std::memcpy(dst, &bits, sizeof(bits));
 		dst += sizeof(bits);
@@ -821,5 +845,59 @@ auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 		*end = dst;
 	}
 
-	return SF2ML_SUCCESS;
+	return failure;
+}
+
+auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
+											const SfInstrumentZone& src) -> SF2ML::SF2MLError {
+
+	SF2MLError failure = SF2ML_SUCCESS;											
+	src.ForEachModulators([&](const SfModulator& mod) {
+		if (failure) {
+			return;
+		}
+
+		bool p1 = mod.GetSourcePolarity();
+		bool d1 = mod.GetSourceDirection();
+		auto s1 = mod.GetSourceShape();
+		bool p2 = mod.GetAmtSourcePolarity();
+		bool d2 = mod.GetAmtSourceDirection();
+		auto s2 = mod.GetAmtSourceShape();
+
+		spec::SfInstModList bits;
+		bits.mod_amount = mod.GetModAmount();
+		bits.sf_mod_trans_oper = mod.GetTransform();
+		bits.sf_mod_src_oper = std::visit(
+			[&](auto&& cc) { return CalcModSrcBits(cc, p1, d1, s1); },
+			mod.GetSourceController()
+		);
+		bits.sf_mod_amt_src_oper = std::visit(
+			[&](auto&& cc) { return CalcModSrcBits(cc, p2, d2, s2); },
+			mod.GetSourceController()
+		);
+
+		auto mod_dest = mod.GetDestination();
+		if (std::holds_alternative<ModHandle>(mod_dest)) {
+			auto dst_idx = src.GetModIndex(std::get<ModHandle>(mod_dest));
+			if (!dst_idx) {
+				failure = SF2ML_NO_SUCH_MODULATORS;
+				return;
+			}
+
+			bits.sf_mod_dest_oper
+				= static_cast<SFGenerator>((1 << 15) | *dst_idx);
+		} else {
+			bits.sf_mod_dest_oper
+				= std::get<SFGenerator>(mod_dest);
+		}
+
+		std::memcpy(dst, &bits, sizeof(bits));
+		dst += sizeof(bits);
+	});
+
+	if (end) {
+		*end = dst;
+	}
+
+	return failure;
 }

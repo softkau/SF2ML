@@ -267,13 +267,18 @@ auto SF2ML::loader::LoadPresets(PresetContainer& presets, const SfbkMap& sfbk) -
 			std::memcpy(&bag_cur, bag_ptr, sizeof(spec::SfPresetBag));
 			std::memcpy(&bag_next, bag_ptr + sizeof(spec::SfPresetBag), sizeof(spec::SfPresetBag));
 
-			// PMOD is skipped rn...
+			const size_t mod_start = bag_cur.w_mod_ndx;
+			const size_t mod_end = bag_next.w_mod_ndx;
+			
 			const size_t gen_start = bag_cur.w_gen_ndx;
 			const size_t gen_end = bag_next.w_gen_ndx;
 
 			const BYTE* gen_ptr = pdta.pgen + 8 + gen_start * sizeof(spec::SfGenList);
-			
+			const BYTE* mod_ptr = pdta.pmod + 8 + mod_start * sizeof(spec::SfModList);
 			SfPresetZone zone(PZoneHandle(0));
+			if (auto err = LoadModulators(zone, mod_ptr, mod_end - mod_start)) {
+				return err;
+			}
 			if (auto err = LoadGenerators(zone, gen_ptr, gen_end - gen_start)) {
 				return err;
 			}
@@ -294,53 +299,53 @@ auto SF2ML::loader::LoadPresets(PresetContainer& presets, const SfbkMap& sfbk) -
 auto SF2ML::loader::LoadInstruments(InstContainer& insts, const SfbkMap& sfbk) -> SF2ML::SF2MLError {
 	const auto& pdta = sfbk.pdta;
 
-		DWORD inst_ck_size;
-		std::memcpy(&inst_ck_size, pdta.inst + 4, sizeof(DWORD));
+	DWORD inst_ck_size;
+	std::memcpy(&inst_ck_size, pdta.inst + 4, sizeof(DWORD));
 
-		size_t inst_count = inst_ck_size / sizeof(spec::SfInst) - 1;
-		for (DWORD id = 0; id < inst_count; id++) {
-			const BYTE* cur_ptr = pdta.inst + 8 + id * sizeof(spec::SfInst);
-			spec::SfInst cur, next;
-			std::memcpy(&cur, cur_ptr, sizeof(spec::SfInst));
-			std::memcpy(&next, cur_ptr + sizeof(spec::SfInst), sizeof(spec::SfInst));
+	size_t inst_count = inst_ck_size / sizeof(spec::SfInst) - 1;
+	for (DWORD id = 0; id < inst_count; id++) {
+		const BYTE* cur_ptr = pdta.inst + 8 + id * sizeof(spec::SfInst);
+		spec::SfInst cur, next;
+		std::memcpy(&cur, cur_ptr, sizeof(spec::SfInst));
+		std::memcpy(&next, cur_ptr + sizeof(spec::SfInst), sizeof(spec::SfInst));
 
-			SfInstrument& rec = insts.NewItem();
-			rec.SetName(std::string(reinterpret_cast<const char*>(cur.ach_inst_name), 20));
+		SfInstrument& rec = insts.NewItem();
+		rec.SetName(std::string(reinterpret_cast<const char*>(cur.ach_inst_name), 20));
 
-			const size_t bag_start = cur.w_inst_bag_ndx;
-			const size_t bag_end = next.w_inst_bag_ndx;
-			for (size_t bag_ndx = bag_start; bag_ndx < bag_end; bag_ndx++) {
-				const BYTE* bag_ptr = pdta.ibag + 8 + bag_ndx * sizeof(spec::SfInstBag);
-				spec::SfInstBag bag_cur, bag_next;
-				std::memcpy(&bag_cur, bag_ptr, sizeof(spec::SfInstBag));
-				std::memcpy(&bag_next, bag_ptr + sizeof(spec::SfInstBag), sizeof(spec::SfInstBag));
+		const size_t bag_start = cur.w_inst_bag_ndx;
+		const size_t bag_end = next.w_inst_bag_ndx;
+		for (size_t bag_ndx = bag_start; bag_ndx < bag_end; bag_ndx++) {
+			const BYTE* bag_ptr = pdta.ibag + 8 + bag_ndx * sizeof(spec::SfInstBag);
+			spec::SfInstBag bag_cur, bag_next;
+			std::memcpy(&bag_cur, bag_ptr, sizeof(spec::SfInstBag));
+			std::memcpy(&bag_next, bag_ptr + sizeof(spec::SfInstBag), sizeof(spec::SfInstBag));
 
-				const size_t mod_start = bag_cur.w_inst_mod_ndx;
-				const size_t mod_end = bag_next.w_inst_mod_ndx;
+			const size_t mod_start = bag_cur.w_inst_mod_ndx;
+			const size_t mod_end = bag_next.w_inst_mod_ndx;
 
-				const size_t gen_start = bag_cur.w_inst_gen_ndx;
-				const size_t gen_end = bag_next.w_inst_gen_ndx;
+			const size_t gen_start = bag_cur.w_inst_gen_ndx;
+			const size_t gen_end = bag_next.w_inst_gen_ndx;
 
-				const BYTE* mod_ptr = pdta.imod + 8 + mod_start * sizeof(spec::SfInstModList);
-				const BYTE* gen_ptr = pdta.igen + 8 + gen_start * sizeof(spec::SfInstGenList);
-				SfInstrumentZone zone(IZoneHandle(0));
-				if (auto err = LoadModulators(zone, mod_ptr, mod_end - mod_start)) {
-					return err;
-				}
-				if (auto err = LoadGenerators(zone, gen_ptr, gen_end - gen_start)) {
-					return err;
-				}
-				
-				if (!zone.IsEmpty()) {
-					if (bag_ndx == bag_start && !zone.HasGenerator(SfGenSampleID)) {
-						rec.GetGlobalZone().MoveProperties(std::move(zone));
-					} else if (zone.HasGenerator(SfGenSampleID)) {
-						rec.NewZone().MoveProperties(std::move(zone));
-					}
+			const BYTE* mod_ptr = pdta.imod + 8 + mod_start * sizeof(spec::SfInstModList);
+			const BYTE* gen_ptr = pdta.igen + 8 + gen_start * sizeof(spec::SfInstGenList);
+			SfInstrumentZone zone(IZoneHandle(0));
+			if (auto err = LoadModulators(zone, mod_ptr, mod_end - mod_start)) {
+				return err;
+			}
+			if (auto err = LoadGenerators(zone, gen_ptr, gen_end - gen_start)) {
+				return err;
+			}
+			
+			if (!zone.IsEmpty()) {
+				if (bag_ndx == bag_start && !zone.HasGenerator(SfGenSampleID)) {
+					rec.GetGlobalZone().MoveProperties(std::move(zone));
+				} else if (zone.HasGenerator(SfGenSampleID)) {
+					rec.NewZone().MoveProperties(std::move(zone));
 				}
 			}
 		}
-		return SF2ML_SUCCESS;
+	}
+	return SF2ML_SUCCESS;
 }
 
 auto SF2ML::loader::LoadSamples(SmplContainer& smpls, const SfbkMap& sfbk) -> SF2ML::SF2MLError {
@@ -442,7 +447,43 @@ auto SF2ML::loader::LoadGenerators(SfInstrumentZone& dst, const BYTE* buf, DWORD
 }
 
 auto SF2ML::loader::LoadModulators(SfPresetZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {
-	return SF2ML_FAILED;
+	std::map<ModID, WORD> active_mod_idx;
+
+	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
+		auto mod = BitArrCast<spec::SfModList>(buf, mod_ndx);
+		SFModulator mod_amt_src = mod.sf_mod_amt_src_oper;
+		if ((mod_amt_src & 0xFF) == static_cast<BYTE>(GeneralController::Link)) {
+			continue;
+		}
+
+		active_mod_idx.insert_or_assign(
+			ModID(SFModulator(mod.sf_mod_src_oper),
+				  SFGenerator(mod.sf_mod_dest_oper),
+				  SFModulator(mod.sf_mod_amt_src_oper)),
+			static_cast<WORD>(mod_ndx)
+		);
+	}
+
+	recursive::InitDFS(active_mod_idx);
+	for (size_t mod_ndx = 0; mod_ndx < count; mod_ndx++) {
+		if (recursive::DFSModulators(mod_ndx, buf)) {
+			auto mod = BitArrCast<spec::SfModList>(buf, mod_ndx);
+			
+			SfModulator& r = dst.NewModulatorWithKey(ModHandle(mod_ndx));
+			r.SetSource(mod.sf_mod_src_oper);
+			r.SetAmtSource(mod.sf_mod_amt_src_oper);
+
+			if (mod.sf_mod_dest_oper & 0x8000) {
+				r.SetDestination(ModHandle(mod.sf_mod_dest_oper & 0x7FFF));
+			} else {
+				r.SetDestination(mod.sf_mod_dest_oper);
+			}
+			r.SetTransform(mod.sf_mod_trans_oper);
+			r.SetModAmount(mod.mod_amount);
+		}
+	}
+	
+	return SF2ML_SUCCESS;
 }
 
 auto SF2ML::loader::LoadModulators(SfInstrumentZone& dst, const BYTE* buf, DWORD count) -> SF2ML::SF2MLError {

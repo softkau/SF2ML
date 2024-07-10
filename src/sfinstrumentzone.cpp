@@ -49,7 +49,7 @@ IZoneHandle SfInstrumentZone::GetHandle() const {
 
 bool SfInstrumentZone::IsEmpty() const noexcept {
 	if (pimpl->self_handle.value == 0) {
-		return pimpl->active_gens.count() == 0 && pimpl->modulators.Count();
+		return pimpl->active_gens.count() == 0 && pimpl->modulators.Count() == 0;
 	} else {
 		return pimpl->active_gens.count() == 0;
 	}
@@ -66,10 +66,6 @@ DWORD SF2ML::SfInstrumentZone::ModulatorCount() const noexcept {
 bool SfInstrumentZone::HasGenerator(SFGenerator type) const {
 	assert(static_cast<WORD>(type) < SfGenEndOper);
 	return pimpl->active_gens[static_cast<WORD>(type)];
-}
-
-bool SfInstrumentZone::HasModulator(SFModulator type) const {
-	return false;
 }
 
 #define IZONE_S16_PLAIN_GETTER_IMPL(GeneratorType, DefaultBits) \
@@ -382,7 +378,7 @@ void SfInstrumentZone::ForEachModulators(std::function<void(const SfModulator&)>
 	}
 }
 
-auto SfInstrumentZone::GetModID(ModHandle handle) const -> std::optional<std::uint16_t> {
+auto SfInstrumentZone::GetModIndex(ModHandle handle) const -> std::optional<std::uint16_t> {
 	return pimpl->modulators.GetID(handle);
 }
 
