@@ -60,7 +60,7 @@ auto SfModulator::SetSource(GeneralController controller,
 							SfModSourceType shape) -> SfModulator& {
 	pimpl->src = 0;
 	pimpl->src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
-	pimpl->src |= 1 << 7; // cc
+	pimpl->src |= 0 << 7; // cc
 	pimpl->src |= direction << 8; // d
 	pimpl->src |= polarity << 9; // p
 	pimpl->src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
@@ -74,7 +74,7 @@ auto SfModulator::SetSource(MidiController controller,
 							SfModSourceType shape) -> SfModulator& {
 	pimpl->src = 0;
 	pimpl->src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
-	pimpl->src |= 0 << 7; // cc
+	pimpl->src |= 1 << 7; // cc
 	pimpl->src |= direction << 8; // d
 	pimpl->src |= polarity << 9; // p
 	pimpl->src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
@@ -97,7 +97,7 @@ auto SfModulator::SetAmtSource(GeneralController controller,
 
 	pimpl->amt_src = 0;
 	pimpl->amt_src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
-	pimpl->amt_src |= 1 << 7; // cc
+	pimpl->amt_src |= 0 << 7; // cc
 	pimpl->amt_src |= direction << 8; // d
 	pimpl->amt_src |= polarity << 9; // p
 	pimpl->amt_src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type
@@ -111,7 +111,7 @@ auto SfModulator::SetAmtSource(MidiController controller,
 							   SfModSourceType shape) -> SfModulator& {
 	pimpl->amt_src = 0;
 	pimpl->amt_src |= (static_cast<BYTE>(controller) & 0b0111'1111); // index
-	pimpl->amt_src |= 0 << 7; // cc
+	pimpl->amt_src |= 1 << 7; // cc
 	pimpl->amt_src |= direction << 8; // d
 	pimpl->amt_src |= polarity << 9; // p
 	pimpl->amt_src |= (static_cast<BYTE>(shape) & 0b0011'1111) << 10; // type

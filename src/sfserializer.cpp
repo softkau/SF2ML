@@ -810,7 +810,7 @@ auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 		bool d2 = mod.GetAmtSourceDirection();
 		auto s2 = mod.GetAmtSourceShape();
 
-		spec::SfInstModList bits;
+		spec::SfModList bits;
 		bits.mod_amount = mod.GetModAmount();
 		bits.sf_mod_trans_oper = mod.GetTransform();
 		bits.sf_mod_src_oper = std::visit(
@@ -819,7 +819,7 @@ auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 		);
 		bits.sf_mod_amt_src_oper = std::visit(
 			[&](auto&& cc) { return CalcModSrcBits(cc, p2, d2, s2); },
-			mod.GetSourceController()
+			mod.GetAmtSourceController()
 		);
 
 		auto mod_dest = mod.GetDestination();
@@ -873,7 +873,7 @@ auto SF2ML::serializer::SerializeModulators(BYTE* dst, BYTE** end,
 		);
 		bits.sf_mod_amt_src_oper = std::visit(
 			[&](auto&& cc) { return CalcModSrcBits(cc, p2, d2, s2); },
-			mod.GetSourceController()
+			mod.GetAmtSourceController()
 		);
 
 		auto mod_dest = mod.GetDestination();

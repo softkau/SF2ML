@@ -40,7 +40,7 @@ inline bool MatchModDest(const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle
     CHECK((smpl).GetLink() == (link));                        \
 } while(0)
 
-TEST_CASE("Load Samples from file", "[loader]") {
+TEST_CASE("Load Samples from file #1", "[loader][sample]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -98,7 +98,7 @@ TEST_CASE("Load Samples from file", "[loader]") {
 
 }
 
-TEST_CASE("Load Instruments from file", "[loader]") {
+TEST_CASE("Load Instruments from file #1", "[loader][inst]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -266,7 +266,7 @@ TEST_CASE("Load Instruments from file", "[loader]") {
     CHECK(lead_A5R.root_key == 81);
 }
 
-TEST_CASE("Load Presets from file", "[loader]") {
+TEST_CASE("Load Presets from file #1", "[loader][preset]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -300,4 +300,31 @@ TEST_CASE("Load Presets from file", "[loader]") {
     CHECK(sf2.GetInstrument(*lead_inst_h).GetName() == "Lead");
     CHECK(kick_zone1.ModulatorCount() == 0);
     CHECK(lead_zone1.ModulatorCount() == 0);
+}
+
+TEST_CASE("Load from file #2", "[loader][inst][preset]") {
+    SF2ML::SoundFont sf2;
+    std::ifstream sf2_ifs(src_dir + "SF2ML_TEST2.sf2", std::ios::binary);
+    REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
+
+    auto insts = sf2.AllInstruments();
+    auto presets = sf2.AllPresets();
+
+    REQUIRE(insts.size() == 1);
+    auto& sq_inst = sf2.GetInstrument(insts[0]);
+
+    REQUIRE(presets.size() == 1);
+    auto& sq_preset = sf2.GetPreset(presets[0]);
+
+    CHECK(sq_preset.GetPresetNumber() == 2);
+    CHECK(sq_preset.GetBankNumber() == 0);
+    {
+        auto zones = sq_preset.AllZoneHandles();
+        REQUIRE(zones.size() == 3);
+
+        
+
+    }
+
+    
 }
