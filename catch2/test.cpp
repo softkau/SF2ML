@@ -12,6 +12,11 @@
 
 std::string src_dir = "../sf2src/";
 
+inline bool MatchModDest(const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& x,
+                         const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& y) {
+    return x == y;
+}
+
 #define CheckSampleProperties(smpl,                           \
                               name,                           \
                               bit_depth,                      \
@@ -35,7 +40,7 @@ std::string src_dir = "../sf2src/";
     CHECK((smpl).GetLink() == (link));                        \
 } while(0)
 
-TEST_CASE("Load Samples from file", "[loader]") {
+TEST_CASE("Load Samples from file #1", "[loader][sample]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -93,7 +98,7 @@ TEST_CASE("Load Samples from file", "[loader]") {
 
 }
 
-TEST_CASE("Load Instruments from file", "[loader]") {
+TEST_CASE("Load Instruments from file #1", "[loader][inst]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -123,6 +128,29 @@ TEST_CASE("Load Instruments from file", "[loader]") {
     REQUIRE(kick_zone1.GetSample().has_value());
     auto kick_smpl_h = *kick_zone1.GetSample();
     CHECK(sf2.GetSample(kick_smpl_h).GetName() == "Kick 1");
+
+    auto kick_global_mod_h
+        = kick.GetGlobalZone().FindModulator(
+            [](const SF2ML::SfModulator& mod) {
+                return SF2ML::MatchController(
+                    mod.GetSourceController(),
+                    SF2ML::GeneralController::NoteOnVelocity
+                );
+            }
+        );
+
+    REQUIRE(kick_global_mod_h.has_value());
+    auto& kick_global_mod = kick.GetGlobalZone().GetModulator(*kick_global_mod_h);
+    CHECK(SF2ML::MatchController(kick_global_mod.GetAmtSourceController(), SF2ML::GeneralController::None));
+    CHECK(kick_global_mod.GetSourceShape() == SF2ML::SfModSourceType::Concave);
+    CHECK(kick_global_mod.GetSourcePolarity() == false);
+    CHECK(kick_global_mod.GetSourceDirection() == true);
+    CHECK(kick_global_mod.GetAmtSourceShape() == SF2ML::SfModSourceType::Linear);
+    CHECK(kick_global_mod.GetAmtSourcePolarity() == false);
+    CHECK(kick_global_mod.GetAmtSourceDirection() == false);
+    CHECK(MatchModDest(kick_global_mod.GetDestination(), SF2ML::SfGenInitialFilterFc));
+    CHECK(kick_global_mod.GetModAmount() == 4);
+    CHECK(kick_global_mod.GetTransform() == SF2ML::SfModLinearTransform);
 
     // checking Lead instrument
     auto lead_h = sf2.FindInstrument([](const auto& inst) {
@@ -238,7 +266,7 @@ TEST_CASE("Load Instruments from file", "[loader]") {
     CHECK(lead_A5R.root_key == 81);
 }
 
-TEST_CASE("Load Presets from file", "[loader]") {
+TEST_CASE("Load Presets from file #1", "[loader][preset]") {
     SF2ML::SoundFont sf2;
     std::ifstream sf2_ifs(src_dir + "SF2ML_TEST1.sf2", std::ios::binary);
     REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
@@ -257,8 +285,8 @@ TEST_CASE("Load Presets from file", "[loader]") {
     auto& kick = sf2.GetPreset(*kick_h);
     auto& lead = sf2.GetPreset(*lead_h);
 
-    CHECK(kick.CountZones() == 1);
-    CHECK(lead.CountZones() == 1);
+    CHECK(kick.CountZones(false) == 1);
+    CHECK(lead.CountZones(false) == 1);
 
     auto& kick_zone1 = kick.GetZone(kick.AllZoneHandles()[1]);
     auto& lead_zone1 = lead.GetZone(lead.AllZoneHandles()[1]);
@@ -270,4 +298,33 @@ TEST_CASE("Load Presets from file", "[loader]") {
 
     CHECK(sf2.GetInstrument(*kick_inst_h).GetName() == "Kick 1");
     CHECK(sf2.GetInstrument(*lead_inst_h).GetName() == "Lead");
+    CHECK(kick_zone1.ModulatorCount() == 0);
+    CHECK(lead_zone1.ModulatorCount() == 0);
+}
+
+TEST_CASE("Load from file #2", "[loader][inst][preset]") {
+    SF2ML::SoundFont sf2;
+    std::ifstream sf2_ifs(src_dir + "SF2ML_TEST2.sf2", std::ios::binary);
+    REQUIRE(sf2.Load(sf2_ifs) == SF2ML::SF2ML_SUCCESS);
+
+    auto insts = sf2.AllInstruments();
+    auto presets = sf2.AllPresets();
+
+    REQUIRE(insts.size() == 1);
+    auto& sq_inst = sf2.GetInstrument(insts[0]);
+
+    REQUIRE(presets.size() == 1);
+    auto& sq_preset = sf2.GetPreset(presets[0]);
+
+    CHECK(sq_preset.GetPresetNumber() == 2);
+    CHECK(sq_preset.GetBankNumber() == 0);
+    {
+        auto zones = sq_preset.AllZoneHandles();
+        REQUIRE(zones.size() == 3);
+
+        
+
+    }
+
+    
 }

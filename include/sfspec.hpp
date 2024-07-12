@@ -66,7 +66,50 @@ namespace SF2ML {
 	};
 	
 	using SFModulator = WORD;
-	using SFTransform = WORD;
+
+	enum class SfModSourceType : BYTE {
+		Linear = 0,
+		Concave = 1,
+		Convex = 2,
+		Switch = 3,
+	};
+
+	enum class GeneralController : BYTE {
+		None = 0,
+		NoteOnVelocity = 2,
+		NoteOnKeyNumber = 3,
+		PolyPressure = 10,
+		ChannelPressure = 13,
+		PitchWheel = 14,
+		PitchWheelSensitivity = 16,
+		Link = 127
+	};
+
+	using MidiController = BYTE;
+
+	inline std::string StringifyController(GeneralController cc) {
+		static const char* names[] = {
+			"None",
+			"NoteOnVelocity",
+			"NoteOnKeyNumber",
+			"PolyPressure",
+			"ChannelPressure",
+			"PitchWheel",
+			"PitchWheelSensitivity",
+			"Link",
+		};
+
+		return names[(unsigned)cc];
+	}
+
+	inline std::string StringifyController(MidiController cc) {
+		return "MIDI CC(" + std::to_string(cc) + ")";
+	}
+
+	enum SFTransform : WORD {
+		SfModLinearTransform = 0,
+		SfModAbsoluteValueTransform = 2,
+	};
 
 	enum SFSampleLink : WORD {
 		monoSample = 1,

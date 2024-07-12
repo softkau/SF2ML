@@ -24,6 +24,8 @@ namespace SF2ML::serializer {
 	SF2MLError SerializeSHDR(BYTE* dst, BYTE** end, const SmplContainer& src, unsigned z_zone);
 	SF2MLError SerializeGenerators(BYTE* dst, BYTE** end, const SfPresetZone& src, const InstContainer& inst_info);
 	SF2MLError SerializeGenerators(BYTE* dst, BYTE** end, const SfInstrumentZone& src, const SmplContainer& smpl_info);
+	SF2MLError SerializeModulators(BYTE* dst, BYTE** end, const SfPresetZone& src);
+	SF2MLError SerializeModulators(BYTE* dst, BYTE** end, const SfInstrumentZone& src);
 }
 
 #endif

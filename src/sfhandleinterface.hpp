@@ -15,12 +15,7 @@
 namespace SF2ML {
 
 	template <typename T>
-	concept SfHandle = std::totally_ordered<T>
-					&& (std::same_as<T, SmplHandle>
-	                || std::same_as<T, InstHandle>
-					|| std::same_as<T, PresetHandle>
-					|| std::same_as<T, IZoneHandle>
-					|| std::same_as<T, PZoneHandle>);
+	concept SfHandle = std::totally_ordered<T>;
 
 	template <typename T, typename HandleType>
 	concept DataTypeRequirements = requires (T x, HandleType handle) {
@@ -49,6 +44,25 @@ namespace SF2ML {
 			interface.emplace(handle, static_cast<DWORD>(this->data.size()));
 			data.emplace_back(handle, std::forward<Args>(args)...);
 			handles.push_back(handle);
+			return data.back();
+		}
+
+		template <typename... Args>
+		DataType& NewItemWithKey(decltype(HandleT::value) key, Args&&... args) {
+			if (data.size() >= std::numeric_limits<decltype(HandleT::value)>::max()) {
+				throw std::length_error("Cannot create more items!");
+			}
+
+			if (interface.find(HandleT(key)) != interface.end()) {
+				throw std::runtime_error("Tried to add item with existing key.");
+			}
+
+			HandleT handle(key);
+			interface.emplace(handle, static_cast<DWORD>(this->data.size()));
+			data.emplace_back(handle, std::forward<Args>(args)...);
+			handles.push_back(handle);
+
+			next_key = key + 1;
 			return data.back();
 		}
 

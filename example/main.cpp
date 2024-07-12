@@ -81,14 +81,40 @@ int test3(int argc, char** argv) {
 	}
 
 	auto ih = sf2.NewInstrument("Ahh Choir Stereo").GetHandle();
-	sf2.GetInstrument(ih).NewZone()
+	auto iz1h = sf2.GetInstrument(ih).NewZone()
 		.SetSampleModes(SF2ML::LoopMode::Loop)
 		.SetPan(-500)
-		.SetSample(sh1);
-	sf2.GetInstrument(ih).NewZone()
+		.SetSample(sh1)
+		.GetHandle();
+	auto iz2h = sf2.GetInstrument(ih).NewZone()
 		.SetSampleModes(SF2ML::LoopMode::Loop)
 		.SetPan(500)
-		.SetSample(sh2);
+		.SetSample(sh2)
+		.GetHandle();
+
+	{ // adding modulators
+		sf2.GetInstrument(ih).GetZone(iz1h).NewModulator()
+			.SetSource(SF2ML::GeneralController::PitchWheel, 1, 0, SF2ML::SfModSourceType::Linear)
+			.SetAmtSource(SF2ML::GeneralController::NoteOnVelocity, 0, 1, SF2ML::SfModSourceType::Concave)
+			.SetDestination(SF2ML::SfGenInitialFilterFc)
+			.SetTransform(SF2ML::SfModLinearTransform)
+			.SetModAmount(-1);
+
+		auto& iz2 = sf2.GetInstrument(ih).GetZone(iz2h);
+		auto m1h = iz2.NewModulator()
+			.SetSource(SF2ML::GeneralController::Link, 0, 0, SF2ML::SfModSourceType::Linear)
+			.SetAmtSource(SF2ML::MidiController(4), 0, 0, SF2ML::SfModSourceType::Linear)
+			.SetDestination(SF2ML::SfGenInitialFilterFc)
+			.SetTransform(SF2ML::SfModLinearTransform)
+			.SetModAmount(1)
+			.GetHandle();
+		iz2.NewModulator()
+			.SetSource(SF2ML::GeneralController::NoteOnVelocity, 0, 0, SF2ML::SfModSourceType::Linear)
+			.SetAmtSource(SF2ML::MidiController(2), 0, 0, SF2ML::SfModSourceType::Linear)
+			.SetDestination(m1h)
+			.SetModAmount(1)
+			.SetTransform(SF2ML::SfModLinearTransform);
+	}
 	
 	sf2.NewPreset(52, 0, "Ahh Choir Stereo").NewZone()
 		.SetInstrument(

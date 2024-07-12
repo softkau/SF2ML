@@ -13,6 +13,7 @@ add_library(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
 	PRIVATE
+		src/sfmodulator.cpp
 		src/sf2ml.cpp
 		src/sfinfo.cpp
 		src/sfinstrument.cpp
@@ -44,6 +45,7 @@ set(public_headers
 	include/sfinfo.hpp
 	include/sfinstrument.hpp
 	include/sfinstrumentzone.hpp
+	include/sfmodulator.hpp
 	include/sfpreset.hpp
 	include/sfpresetzone.hpp
 	include/sfsample.hpp

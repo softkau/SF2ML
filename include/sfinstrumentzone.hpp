@@ -4,10 +4,12 @@
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
 #include "sfgenerator.hpp"
+#include "sfmodulator.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <memory>
+#include <functional>
 
 namespace SF2ML {
 	enum class LoopMode {
@@ -24,15 +26,27 @@ namespace SF2ML {
 		SfInstrumentZone& operator=(SfInstrumentZone&&) noexcept;
 
 		IZoneHandle GetHandle() const;
-		DWORD RequiredSize() const;
 
-		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
-		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
-
+		/// @brief This method checks if the zone has no properties to be saved into file.
+		/// @retval (for non-global zones) true iff the zone has zero generators.
+		/// @retval (for global zones) true iff the zone has zero generators & modulators.
 		bool IsEmpty() const noexcept;
+
+		DWORD ModulatorCount() const noexcept;
+		auto NewModulator() -> SfModulator&;
+		auto NewModulatorWithKey(ModHandle handle) -> SfModulator&;
+		void RemoveModulator(ModHandle handle);
+		auto GetModulator(ModHandle handle) -> SfModulator&;
+		auto FindModulator(std::function<bool(const SfModulator&)> pred) const -> std::optional<ModHandle>;
+		auto FindModulators(std::function<bool(const SfModulator&)> pred) const -> std::vector<ModHandle>;
+		void ForEachModulators(std::function<void(SfModulator&)> pred);
+		void ForEachModulators(std::function<void(const SfModulator&)> pred) const;
+		auto GetModIndex(ModHandle handle) const -> std::optional<std::uint16_t>;
+
 		DWORD GeneratorCount() const noexcept;
 		bool HasGenerator(SFGenerator type) const;
-		bool HasModulator(SFModulator type) const;
+		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone&;
+		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
 		SfInstrumentZone& CopyProperties(const SfInstrumentZone& zone);
 		SfInstrumentZone& MoveProperties(SfInstrumentZone&& zone);
