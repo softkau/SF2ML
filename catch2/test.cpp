@@ -10,7 +10,7 @@
 #include <optional>
 #include <type_traits>
 
-std::string src_dir = "../sf2src/";
+extern std::string src_dir;
 
 inline bool MatchModDest(const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& x,
                          const std::variant<SF2ML::SFGenerator, SF2ML::ModHandle>& y) {

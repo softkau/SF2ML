@@ -15,9 +15,9 @@ find_package(SF2ML 0.1.0 CONFIG REQUIRED)
 # find Catch2 package (Catch2 must be installed beforehand!)
 find_package(Catch2 3 REQUIRED)
 
-add_executable(${PROJECT_NAME} test.cpp)
+add_executable(${PROJECT_NAME} main.cpp test.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE sf2ml::SF2ML Catch2::Catch2WithMain)
+target_link_libraries(${PROJECT_NAME} PRIVATE sf2ml::SF2ML Catch2::Catch2)
 
 include(CTest)
 include(Catch)
