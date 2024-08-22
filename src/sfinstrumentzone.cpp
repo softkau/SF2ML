@@ -8,14 +8,19 @@
 #include <bitset>
 #include <array>
 
+#include "sfhandleinterface.hpp"
+
 using namespace SF2ML;
 
 namespace SF2ML {
 	class SfInstrumentZoneImpl {
 		friend SfInstrumentZone;
 		IZoneHandle self_handle;
+		// generators
 		std::bitset<SfGenEndOper> active_gens {};
 		std::array<SfGenAmount, SfGenEndOper> generators;
+		// modulators
+		SfHandleInterface<SfModulator, ModHandle> modulators;
 	public:
 		SfInstrumentZoneImpl(IZoneHandle handle) : self_handle{handle} {}
 	};
@@ -43,20 +48,24 @@ IZoneHandle SfInstrumentZone::GetHandle() const {
 }
 
 bool SfInstrumentZone::IsEmpty() const noexcept {
-	return pimpl->active_gens.count() == 0;
+	if (pimpl->self_handle.value == 0) {
+		return pimpl->active_gens.count() == 0 && pimpl->modulators.Count() == 0;
+	} else {
+		return pimpl->active_gens.count() == 0;
+	}
 }
 
 DWORD SfInstrumentZone::GeneratorCount() const noexcept {
 	return pimpl->active_gens.count();
 }
 
+DWORD SF2ML::SfInstrumentZone::ModulatorCount() const noexcept {
+	return pimpl->modulators.Count();
+}
+
 bool SfInstrumentZone::HasGenerator(SFGenerator type) const {
 	assert(static_cast<WORD>(type) < SfGenEndOper);
 	return pimpl->active_gens[static_cast<WORD>(type)];
-}
-
-bool SfInstrumentZone::HasModulator(SFModulator type) const {
-	return false;
 }
 
 #define IZONE_S16_PLAIN_GETTER_IMPL(GeneratorType, DefaultBits) \
@@ -254,7 +263,7 @@ IZONE_S16_PLAIN_SETTER_IMPL(Velocity)
 IZONE_S16_PLAIN_SETTER_IMPL(ExclusiveClass)
 IZONE_S16_PLAIN_SETTER_IMPL(OverridingRootKey)
 
-auto SfInstrumentZone::GetSampleHandle() const -> std::optional<SmplHandle> {
+auto SfInstrumentZone::GetSample() const -> std::optional<SmplHandle> {
 	if (HasGenerator(SfGenSampleID)) {
 		return std::get<SmplHandle>(pimpl->generators[SfGenSampleID]);
 	} else {
@@ -306,10 +315,6 @@ auto SfInstrumentZone::SetSampleModes(std::optional<LoopMode> x) -> SfInstrument
 	return *this;
 }
 
-DWORD SfInstrumentZone::RequiredSize() const {
-	return pimpl->active_gens.count() * sizeof(spec::SfInstGenList);
-}
-
 auto SfInstrumentZone::SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfInstrumentZone& {
 	if (amt.has_value()) {
 		pimpl->active_gens.set(type);
@@ -324,15 +329,69 @@ auto SfInstrumentZone::GetGenerator(SFGenerator type) const -> SfGenAmount {
 	return pimpl->generators[type];
 }
 
-SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone)
-{
+auto SfInstrumentZone::NewModulator() -> SfModulator& {
+	return pimpl->modulators.NewItem();
+}
+
+auto SF2ML::SfInstrumentZone::NewModulatorWithKey(ModHandle handle) -> SfModulator& {
+	return pimpl->modulators.NewItemWithKey(handle.value);
+}
+
+void SfInstrumentZone::RemoveModulator(ModHandle handle) {
+	pimpl->modulators.Remove(handle);
+}
+
+auto SfInstrumentZone::GetModulator(ModHandle handle) -> SfModulator& {
+	return *pimpl->modulators.Get(handle);
+}
+
+auto SfInstrumentZone::FindModulator(std::function<bool(const SfModulator&)> pred) const
+-> std::optional<ModHandle> {
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			return mod.GetHandle();
+		}
+	}
+	return std::nullopt;
+}
+
+auto SfInstrumentZone::FindModulators(std::function<bool(const SfModulator&)> pred) const
+-> std::vector<ModHandle> {
+	std::vector<ModHandle> mods;
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			mods.push_back(mod.GetHandle());
+		}
+	}
+	return mods;
+}
+
+void SfInstrumentZone::ForEachModulators(std::function<void(SfModulator&)> pred) {
+	for (auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+void SfInstrumentZone::ForEachModulators(std::function<void(const SfModulator&)> pred) const {
+	for (const auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+auto SfInstrumentZone::GetModIndex(ModHandle handle) const -> std::optional<std::uint16_t> {
+	return pimpl->modulators.GetID(handle);
+}
+
+SfInstrumentZone& SfInstrumentZone::CopyProperties(const SfInstrumentZone& zone) {
 	pimpl->active_gens = zone.pimpl->active_gens;
 	pimpl->generators  = zone.pimpl->generators;
+	pimpl->modulators  = zone.pimpl->modulators;
 	return *this;
 }
 
 SfInstrumentZone& SfInstrumentZone::MoveProperties(SfInstrumentZone&& zone) {
 	pimpl->active_gens = std::move(zone.pimpl->active_gens);
 	pimpl->generators  = std::move(zone.pimpl->generators);
+	pimpl->modulators  = std::move(zone.pimpl->modulators);
 	return *this;
 }

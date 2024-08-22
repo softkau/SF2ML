@@ -8,14 +8,19 @@
 #include <bitset>
 #include <array>
 
+#include "sfhandleinterface.hpp"
+
 using namespace SF2ML;
 
 namespace SF2ML {
 	class SfPresetZoneImpl {
 		friend SfPresetZone;
 		PZoneHandle self_handle;
+		// generators
 		std::bitset<SfGenEndOper> active_gens {};
 		std::array<SfGenAmount, SfGenEndOper> generators;
+		// modulators
+		SfHandleInterface<SfModulator, ModHandle> modulators;
 	public:
 		SfPresetZoneImpl(PZoneHandle handle) : self_handle{handle} {}
 	};
@@ -43,19 +48,24 @@ PZoneHandle SfPresetZone::GetHandle() const {
 }
 
 bool SfPresetZone::IsEmpty() const noexcept {
-	return pimpl->active_gens.count() == 0;
+	if (pimpl->self_handle.value == 0) {
+		return pimpl->active_gens.count() == 0 && pimpl->modulators.Count() == 0;
+	} else {
+		return pimpl->active_gens.count() == 0;
+	}
 }
 
 DWORD SfPresetZone::GeneratorCount() const noexcept {
 	return pimpl->active_gens.count();
 }
+
+DWORD SF2ML::SfPresetZone::ModulatorCount() const noexcept {
+	return pimpl->modulators.Count();
+}
+
 bool SfPresetZone::HasGenerator(SFGenerator type) const {
 	assert(static_cast<WORD>(type) < SfGenEndOper);
 	return pimpl->active_gens[static_cast<WORD>(type)];
-}
-
-bool SfPresetZone::HasModulator(SFModulator type) const {
-	return false;
 }
 
 #define PZONE_S16_PLAIN_GETTER_IMPL(GeneratorType, DefaultBits) \
@@ -245,10 +255,6 @@ auto SfPresetZone::SetInstrument(std::optional<InstHandle> x) -> SfPresetZone& {
 	return *this;
 }
 
-DWORD SfPresetZone::RequiredSize() const {
-	return pimpl->active_gens.count() * sizeof(spec::SfGenList);
-}
-
 auto SF2ML::SfPresetZone::SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfPresetZone& {
 	if (amt.has_value()) {
 		pimpl->active_gens.set(type);
@@ -263,15 +269,69 @@ auto SF2ML::SfPresetZone::GetGenerator(SFGenerator type) const -> SfGenAmount {
 	return pimpl->generators[type];
 }
 
+auto SfPresetZone::NewModulator() -> SfModulator& {
+	return pimpl->modulators.NewItem();
+}
+
+auto SF2ML::SfPresetZone::NewModulatorWithKey(ModHandle handle) -> SfModulator& {
+	return pimpl->modulators.NewItemWithKey(handle.value);
+}
+
+void SfPresetZone::RemoveModulator(ModHandle handle) {
+	pimpl->modulators.Remove(handle);
+}
+
+auto SfPresetZone::GetModulator(ModHandle handle) -> SfModulator& {
+	return *pimpl->modulators.Get(handle);
+}
+
+auto SfPresetZone::FindModulator(std::function<bool(const SfModulator&)> pred) const
+-> std::optional<ModHandle> {
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			return mod.GetHandle();
+		}
+	}
+	return std::nullopt;
+}
+
+auto SfPresetZone::FindModulators(std::function<bool(const SfModulator&)> pred) const
+-> std::vector<ModHandle> {
+	std::vector<ModHandle> mods;
+	for (const auto& mod : pimpl->modulators) {
+		if (pred(mod)) {
+			mods.push_back(mod.GetHandle());
+		}
+	}
+	return mods;
+}
+
+void SfPresetZone::ForEachModulators(std::function<void(SfModulator&)> pred) {
+	for (auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+void SfPresetZone::ForEachModulators(std::function<void(const SfModulator&)> pred) const {
+	for (const auto& mod : pimpl->modulators) {
+		pred(mod);
+	}
+}
+
+auto SfPresetZone::GetModIndex(ModHandle handle) const -> std::optional<std::uint16_t> {
+	return pimpl->modulators.GetID(handle);
+}
+
 SfPresetZone& SfPresetZone::CopyProperties(const SfPresetZone& zone) {
 	pimpl->active_gens = zone.pimpl->active_gens;
 	pimpl->generators  = zone.pimpl->generators;
+	pimpl->modulators  = zone.pimpl->modulators;
 	return *this;
 }
 
 SfPresetZone& SfPresetZone::MoveProperties(SfPresetZone&& zone) {
 	pimpl->active_gens = std::move(zone.pimpl->active_gens);
 	pimpl->generators  = std::move(zone.pimpl->generators);
+	pimpl->modulators  = std::move(zone.pimpl->modulators);
 	return *this;
 }
-

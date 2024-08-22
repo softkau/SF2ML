@@ -17,6 +17,7 @@ namespace SF2ML {
 		"SF2ML_MISSING_TERMINAL_RECORD",
 		"SF2ML_EMPTY_CHUNK",
 		"SF2ML_MIXED_BIT_DEPTH",
+		"SF2ML_NO_SUCH_MODULATORS",
 		"SF2ML_UNIMPLEMENTED",
 	}; static_assert(SF2ML_END_OF_ERRCODE == sizeof(SF2MLErrorStr) / sizeof(const char*));
 

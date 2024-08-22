@@ -34,6 +34,12 @@ namespace SF2ML {
 		uint32_t value; // do not change in client side code
 		auto operator<=>(const PZoneHandle&) const = default;
 	};
+
+	struct ModHandle {
+		explicit ModHandle(uint32_t value) : value{value} {};
+		uint32_t value; // do not change in client side code
+		auto operator<=>(const ModHandle&) const = default;
+	};
 }
 
 #endif

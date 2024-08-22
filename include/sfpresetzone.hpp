@@ -4,10 +4,12 @@
 #include "sfspec.hpp"
 #include "sfhandle.hpp"
 #include "sfgenerator.hpp"
+#include "sfmodulator.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <memory>
+#include <functional>
 
 namespace SF2ML {
 	class SfPresetZone {
@@ -21,16 +23,23 @@ namespace SF2ML {
 
 		// gets the Handle of itself
 		PZoneHandle GetHandle() const;
-		// calculates required size for serializing
-		DWORD RequiredSize() const;
-		
-		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfPresetZone&;
-		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
 		bool IsEmpty() const noexcept;
+		DWORD ModulatorCount() const noexcept;
+		auto NewModulator() -> SfModulator&;
+		auto NewModulatorWithKey(ModHandle handle) -> SfModulator&;
+		void RemoveModulator(ModHandle handle);
+		auto GetModulator(ModHandle handle) -> SfModulator&;
+		auto FindModulator(std::function<bool(const SfModulator&)> pred) const -> std::optional<ModHandle>;
+		auto FindModulators(std::function<bool(const SfModulator&)> pred) const -> std::vector<ModHandle>;
+		void ForEachModulators(std::function<void(SfModulator&)> pred);
+		void ForEachModulators(std::function<void(const SfModulator&)> pred) const;
+		auto GetModIndex(ModHandle handle) const -> std::optional<std::uint16_t>;
+
 		DWORD GeneratorCount() const noexcept;
 		bool HasGenerator(SFGenerator type) const;
-		bool HasModulator(SFModulator type) const;
+		auto SetGenerator(SFGenerator type, std::optional<SfGenAmount> amt) -> SfPresetZone&;
+		auto GetGenerator(SFGenerator type) const -> SfGenAmount;
 
 		// copies properties(generators/modulators) from zone
 		SfPresetZone& CopyProperties(const SfPresetZone& zone);
