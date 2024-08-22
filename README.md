@@ -6,7 +6,7 @@ and break/crash sometimes for unknown reasons)
 ## Warnings
 Not all of the SoundFont2 specifications are implemented yet in SF2ML.
 List of features yet to be implemented:
-* Modulators (they're silently ignored when encountered, and the library will only create empty modulator chunks when serialized)
+* Modulators (actually now they're handled somewhat, it's just that the feature is not tested throughly)
 * File structural error handling (The library assumes the sf2 file is structurally sound when loading)
 * and others that I've missed...
 ## How to compile SF2ML
@@ -47,7 +47,8 @@ install
 └── lib
     └── libSF2MLd.a  # or slightly different name if the config was different
 ```
-## Examples
+## Examples(OUTDATED!)
+*The example posted here is currently outdated. Please stay tuned for updates... (whenever that is ☹)*
 ``` cpp
 #include <iostream>
 #include <fstream>
